@@ -48,5 +48,4 @@ public String getRole() {
 public void setRole(String role) {
 	this.role = role;
 }
-
 }
