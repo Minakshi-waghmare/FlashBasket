@@ -1,16 +1,14 @@
 package com.flashbasket.backend.dto;
 
-public class UserDTO {
+public class ContactDTO {
 
 ```
 private Long id;
 private String name;
 private String email;
-private String password;
+private String message;
 
-public UserDTO() {}
-
-// 🔹 GETTERS
+public ContactDTO() {}
 
 public Long getId() {
     return id;
@@ -24,11 +22,9 @@ public String getEmail() {
     return email;
 }
 
-public String getPassword() {
-    return password;
+public String getMessage() {
+    return message;
 }
-
-// 🔹 SETTERS
 
 public void setId(Long id) {
     this.id = id;
@@ -42,8 +38,8 @@ public void setEmail(String email) {
     this.email = email;
 }
 
-public void setPassword(String password) {
-    this.password = password;
+public void setMessage(String message) {
+    this.message = message;
 }
 ```
 
