@@ -10,7 +10,6 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-```
 // 🔑 Secret key (keep it long & secure)
 private final String SECRET = "mysecretkeymysecretkeymysecretkey12345";
 
@@ -57,6 +56,5 @@ private Date extractExpiration(String token) {
             .getBody()
             .getExpiration();
 }
-```
 
 }

@@ -5,10 +5,9 @@ import java.util.List;
 
 public interface ContactService {
 
-```
 ContactDTO saveMessage(ContactDTO dto);
 
 List<ContactDTO> getAllMessages();
-```
+
 
 }

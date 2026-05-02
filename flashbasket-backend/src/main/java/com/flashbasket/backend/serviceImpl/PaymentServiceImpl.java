@@ -11,36 +11,50 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
-@Autowired
-private PaymentRepository paymentRepository;
 
-@Autowired
-private OrderRepository orderRepository;
+    @Autowired
+    private PaymentRepository paymentRepository;
 
-@Override
-public PaymentDTO makePayment(PaymentDTO dto) {
+    @Autowired
+    private OrderRepository orderRepository;
 
-    Order order = orderRepository.findById(dto.getOrderId())
-            .orElseThrow(() -> new RuntimeException("Order not found"));
+    @Override
+    public PaymentDTO makePayment(PaymentDTO dto) {
 
-    Payment payment = new Payment();
-    payment.setOrderId(dto.getOrderId());
-    payment.setAmount(dto.getAmount());
-    payment.setPaymentMethod(dto.getPaymentMethod());
-    payment.setPaymentStatus("PAID");
+        Order order = orderRepository.findById(dto.getOrderId())
+                .orElseThrow(() -> new RuntimeException("Order not found"));
 
-    Payment saved = paymentRepository.save(payment);
+        Payment payment = new Payment();
+        payment.setOrderId(dto.getOrderId());
+        payment.setAmount(dto.getAmount());
+        payment.setPaymentMethod(dto.getPaymentMethod());
+        payment.setPaymentStatus("PAID");
 
-    // 🔥 IMPORTANT: update order
-    order.setPaymentStatus("PAID");
-    order.setStatus("CONFIRMED");
-    orderRepository.save(order);
+        Payment saved = paymentRepository.save(payment);
 
-    dto.setId(saved.getId());
-    dto.setPaymentStatus("PAID");
+        // update order
+        order.setPaymentStatus("PAID");
+        order.setStatus("CONFIRMED");
+        orderRepository.save(order);
+
+        dto.setId(saved.getId());
+        dto.setPaymentStatus("PAID");
+
+        return dto;
+    }
+    @Override
+public PaymentDTO getPaymentByOrderId(Long orderId) {
+
+    Payment payment = paymentRepository.findByOrderId(orderId)
+            .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+    PaymentDTO dto = new PaymentDTO();
+    dto.setId(payment.getId());
+    dto.setOrderId(payment.getOrderId());
+    dto.setAmount(payment.getAmount());
+    dto.setPaymentMethod(payment.getPaymentMethod());
+    dto.setPaymentStatus(payment.getPaymentStatus());
 
     return dto;
 }
-
-
 }

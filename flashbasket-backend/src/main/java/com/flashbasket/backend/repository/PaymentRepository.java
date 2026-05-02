@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
-```
+
 // 🔹 Get payment by orderId (one order = one payment)
 Optional<Payment> findByOrderId(Long orderId);
 
@@ -17,6 +17,6 @@ List<Payment> findByPaymentStatus(String paymentStatus);
 
 // 🔹 Get payments by method (UPI / CARD / COD)
 List<Payment> findByPaymentMethod(String paymentMethod);
-```
+
 
 }

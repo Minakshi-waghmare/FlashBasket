@@ -10,13 +10,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import java.io.IOException;
 
 @Component
 public class JwtFilter extends OncePerRequestFilter {
 
-```
 @Autowired
 private JwtUtil jwtUtil;
 
@@ -59,6 +59,5 @@ protected void doFilterInternal(HttpServletRequest request,
 
     filterChain.doFilter(request, response);
 }
-```
 
 }

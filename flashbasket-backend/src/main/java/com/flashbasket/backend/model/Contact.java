@@ -6,7 +6,6 @@ import jakarta.persistence.*;
 @Table(name = "contact")
 public class Contact {
 
-```
 @Id
 @GeneratedValue(strategy = GenerationType.IDENTITY)
 private Long id;
@@ -48,6 +47,6 @@ public void setEmail(String email) {
 public void setMessage(String message) {
     this.message = message;
 }
-```
+
 
 }

@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-```
+
 // 🔍 Search product by name
 List<Product> findByNameContainingIgnoreCase(String name);
 
@@ -22,6 +22,6 @@ List<Product> findAllByOrderByPriceDesc();
 
 // 📦 Get products with stock available
 List<Product> findByStockGreaterThan(int stock);
-```
+
 
 }

@@ -2,7 +2,7 @@ package com.flashbasket.backend.util;
 
 public class ApiResponse<T> {
 
-```
+
 private boolean success;
 private String message;
 private T data;
@@ -40,6 +40,6 @@ public void setMessage(String message) {
 public void setData(T data) {
     this.data = data;
 }
-```
+
 
 }

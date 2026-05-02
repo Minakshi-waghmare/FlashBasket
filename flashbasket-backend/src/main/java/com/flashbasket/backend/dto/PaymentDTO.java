@@ -2,7 +2,7 @@ package com.flashbasket.backend.dto;
 
 public class PaymentDTO {
 
-```
+
 private Long id;
 private Long orderId;
 private String paymentMethod;
@@ -50,6 +50,6 @@ public void setPaymentStatus(String paymentStatus) {
 public void setAmount(Double amount) {
     this.amount = amount;
 }
-```
+
 
 }

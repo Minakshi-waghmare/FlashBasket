@@ -12,7 +12,6 @@ import java.util.List;
 @Service
 public class ContactServiceImpl implements ContactService {
 
-```
 @Autowired
 private ContactRepository contactRepository;
 
@@ -42,6 +41,6 @@ public List<ContactDTO> getAllMessages() {
         return dto;
     }).toList();
 }
-```
+
 
 }

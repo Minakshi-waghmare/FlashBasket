@@ -6,7 +6,6 @@ import jakarta.persistence.*;
 @Table(name = "payment")
 public class Payment {
 
-```
 @Id
 @GeneratedValue(strategy = GenerationType.IDENTITY)
 private Long id;
@@ -57,6 +56,5 @@ public void setPaymentStatus(String paymentStatus) {
 public void setAmount(Double amount) {
     this.amount = amount;
 }
-```
 
 }

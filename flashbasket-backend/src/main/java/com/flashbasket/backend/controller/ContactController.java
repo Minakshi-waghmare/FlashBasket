@@ -12,7 +12,6 @@ import java.util.List;
 @CrossOrigin
 public class ContactController {
 
-```
 @Autowired
 private ContactService contactService;
 
@@ -27,6 +26,5 @@ public ContactDTO sendMessage(@RequestBody ContactDTO dto) {
 public List<ContactDTO> getAllMessages() {
     return contactService.getAllMessages();
 }
-```
 
 }

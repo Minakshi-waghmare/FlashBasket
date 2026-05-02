@@ -2,7 +2,6 @@ package com.flashbasket.backend.dto;
 
 public class AuthResponse {
 
-```
 private String message;
 
 public AuthResponse() {}
@@ -18,6 +17,5 @@ public String getMessage() {
 public void setMessage(String message) {
     this.message = message;
 }
-```
 
 }

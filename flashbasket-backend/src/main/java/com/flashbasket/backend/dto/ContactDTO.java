@@ -2,7 +2,6 @@ package com.flashbasket.backend.dto;
 
 public class ContactDTO {
 
-```
 private Long id;
 private String name;
 private String email;
@@ -41,6 +40,5 @@ public void setEmail(String email) {
 public void setMessage(String message) {
     this.message = message;
 }
-```
 
 }

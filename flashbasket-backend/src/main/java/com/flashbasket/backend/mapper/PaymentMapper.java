@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentMapper {
 
-```
 public PaymentDTO toDTO(Payment payment) {
     if (payment == null) return null;
 
@@ -33,6 +32,5 @@ public Payment toEntity(PaymentDTO dto) {
 
     return payment;
 }
-```
 
 }

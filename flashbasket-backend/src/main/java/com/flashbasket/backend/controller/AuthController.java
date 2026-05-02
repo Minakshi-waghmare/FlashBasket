@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin
 public class AuthController {
 
-```
 @Autowired
 private AuthService authService;
 
@@ -27,6 +26,5 @@ public AuthResponse register(@RequestBody UserDTO dto) {
 public AuthResponse login(@RequestBody AuthRequest request) {
     return authService.login(request);
 }
-```
 
 }

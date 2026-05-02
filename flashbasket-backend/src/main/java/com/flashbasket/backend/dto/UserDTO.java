@@ -2,7 +2,7 @@ package com.flashbasket.backend.dto;
 
 public class UserDTO {
 
-```
+
 private Long id;
 private String name;
 private String email;
@@ -45,6 +45,6 @@ public void setEmail(String email) {
 public void setPassword(String password) {
     this.password = password;
 }
-```
+
 
 }

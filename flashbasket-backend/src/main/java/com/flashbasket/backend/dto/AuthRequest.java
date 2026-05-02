@@ -2,7 +2,7 @@ package com.flashbasket.backend.dto;
 
 public class AuthRequest {
 
-```
+
 private String email;
 private String password;
 
@@ -23,6 +23,6 @@ public String getPassword() {
 public void setPassword(String password) {
     this.password = password;
 }
-```
+
 
 }

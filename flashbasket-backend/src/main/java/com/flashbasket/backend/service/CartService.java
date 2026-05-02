@@ -5,14 +5,11 @@ import java.util.List;
 
 public interface CartService {
 
-```
-CartItemDTO addToCart(CartItemDTO dto);
+    CartItemDTO addToCart(CartItemDTO dto);
 
-List<CartItemDTO> getCartItems(Long userId);
+    List<CartItemDTO> getCartByUser(Long userId);
 
-void removeFromCart(Long cartItemId);
+    void removeFromCart(Long cartItemId);
 
-void clearCart(Long userId);
-```
-
+    void clearCart(Long userId);
 }

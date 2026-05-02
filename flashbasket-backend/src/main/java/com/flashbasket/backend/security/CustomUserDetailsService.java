@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
-```
 @Autowired
 private UserRepository userRepository;
 
@@ -25,6 +24,5 @@ public UserDetails loadUserByUsername(String email) throws UsernameNotFoundExcep
             .roles("USER")   // you can change role later
             .build();
 }
-```
 
 }

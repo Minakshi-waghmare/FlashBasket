@@ -23,6 +23,7 @@ public class Order {
     private LocalDateTime orderDate = LocalDateTime.now();
     private Double totalAmount;
     private String status;
+    private String paymentStatus;
     private String shippingAddress;
     private String paymentMethod;
 }

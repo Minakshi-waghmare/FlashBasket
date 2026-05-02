@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-```
+
 // 🔹 Get orders by userId (latest first)
 List<Order> findByUserIdOrderByIdDesc(Long userId);
 
@@ -16,6 +16,6 @@ List<Order> findByStatus(String status);
 
 // 🔹 Get orders by payment status
 List<Order> findByPaymentStatus(String paymentStatus);
-```
+
 
 }

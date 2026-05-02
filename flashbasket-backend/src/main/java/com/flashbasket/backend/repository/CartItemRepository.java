@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface CartItemRepository extends JpaRepository<CartItem, Long> {
 
-```
+
 // 🔹 Get all cart items for a user
 List<CartItem> findByUserId(Long userId);
 
@@ -17,6 +17,6 @@ Optional<CartItem> findByUserIdAndProductId(Long userId, Long productId);
 
 // 🔹 Delete all cart items of a user (after order)
 void deleteByUserId(Long userId);
-```
+
 
 }

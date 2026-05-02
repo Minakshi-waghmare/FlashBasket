@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 @Service
 public class CartServiceImpl implements CartService {
 
-```
 @Autowired
 private CartItemRepository cartItemRepository;
 
@@ -39,7 +38,7 @@ public CartItemDTO addToCart(CartItemDTO dto) {
 
 // 📥 Get Cart Items
 @Override
-public List<CartItemDTO> getCartItems(Long userId) {
+public List<CartItemDTO> getCartByUser(Long userId) {
 
     return cartItemRepository.findByUserId(userId)
             .stream()
@@ -54,7 +53,7 @@ public List<CartItemDTO> getCartItems(Long userId) {
             .collect(Collectors.toList());
 }
 
-// ❌ Remove Item
+
 @Override
 public void removeFromCart(Long cartItemId) {
     cartItemRepository.deleteById(cartItemId);
@@ -65,6 +64,5 @@ public void removeFromCart(Long cartItemId) {
 public void clearCart(Long userId) {
     cartItemRepository.deleteByUserId(userId);
 }
-```
 
 }

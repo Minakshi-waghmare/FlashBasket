@@ -2,7 +2,6 @@ package com.flashbasket.backend.util;
 
 public class Constants {
 
-```
 // 🔹 General
 public static final String SUCCESS = "Success";
 public static final String FAILED = "Failed";
@@ -30,6 +29,5 @@ public static final String PAYMENT_FAILED = "Payment failed";
 
 // 🔹 Contact
 public static final String MESSAGE_SENT = "Message sent successfully";
-```
 
 }
