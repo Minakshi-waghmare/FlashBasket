@@ -7,6 +7,8 @@ public class OrderDTO {
     private Double totalAmount;
     private String shippingAddress;
     private String paymentMethod;
+    private String status;
+    private String paymentStatus;
 
     public OrderDTO() {}
 
@@ -48,4 +50,20 @@ public class OrderDTO {
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
+
+    public String getStatus() {
+    return status;
+}
+
+public void setStatus(String status) {
+    this.status = status;
+}
+
+public String getPaymentStatus() {
+    return paymentStatus;
+}
+
+public void setPaymentStatus(String paymentStatus) {
+    this.paymentStatus = paymentStatus;
+}
 }

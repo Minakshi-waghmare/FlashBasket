@@ -17,12 +17,21 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping("/place")
-    public ResponseEntity<Order> placeOrder(@AuthenticationPrincipal UserDetails userDetails, @RequestBody OrderDTO req) {
-        return ResponseEntity.ok(orderService.createOrder(userDetails.getUsername(), req));
-    }
+public ResponseEntity<OrderDTO> placeOrder(
+        @AuthenticationPrincipal UserDetails userDetails,
+        @RequestBody OrderDTO req) {
+
+    return ResponseEntity.ok(
+        orderService.createOrder(userDetails.getUsername(), req)
+    );
+}
 
     @GetMapping("/my-orders")
-    public ResponseEntity<List<Order>> getMyOrders(@AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(orderService.getUserOrders(userDetails.getUsername()));
-    }
+public ResponseEntity<List<OrderDTO>> getMyOrders(
+        @AuthenticationPrincipal UserDetails userDetails) {
+
+    return ResponseEntity.ok(
+        orderService.getUserOrders(userDetails.getUsername())
+    );
+}
 }

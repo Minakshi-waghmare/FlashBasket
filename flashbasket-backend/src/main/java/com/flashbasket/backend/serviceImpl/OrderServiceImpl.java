@@ -25,10 +25,10 @@ private OrderRepository orderRepository;
 
 // 📦 Place Order (Cart → Order)
 @Override
-public OrderDTO placeOrder(Long userId) {
+public OrderDTO createOrder(String username, OrderDTO dto) {
 
     // 1️⃣ Get cart items
-    List<CartItem> cartItems = cartItemRepository.findByUserId(userId);
+    List<CartItem> cartItems = cartItemRepository.findByUserId(1L);
 
     if (cartItems.isEmpty()) {
         throw new RuntimeException("Cart is empty");
@@ -41,7 +41,7 @@ public OrderDTO placeOrder(Long userId) {
 
     // 3️⃣ Create Order
     Order order = new Order();
-    order.setUserId(userId);
+    order.setUserId(1L);
     order.setTotalAmount(totalAmount);
     order.setStatus("PLACED");
     order.setPaymentStatus("PENDING");
@@ -50,10 +50,9 @@ public OrderDTO placeOrder(Long userId) {
     Order saved = orderRepository.save(order);
 
     // 4️⃣ Clear Cart after order
-    cartItemRepository.deleteByUserId(userId);
+    cartItemRepository.deleteByUserId(1L);
 
     // 5️⃣ Return DTO
-    OrderDTO dto = new OrderDTO();
     dto.setId(saved.getId());
     dto.setUserId(saved.getUserId());
     dto.setTotalAmount(saved.getTotalAmount());
@@ -65,9 +64,9 @@ public OrderDTO placeOrder(Long userId) {
 
 // 📥 Get User Orders
 @Override
-public List<OrderDTO> getUserOrders(Long userId) {
+public List<OrderDTO> getUserOrders(String username) {
 
-    return orderRepository.findByUserIdOrderByIdDesc(userId)
+    return orderRepository.findByUserIdOrderByIdDesc(1L)
             .stream()
             .map(order -> {
                 OrderDTO dto = new OrderDTO();

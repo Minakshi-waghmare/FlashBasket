@@ -1,16 +1,19 @@
 package com.flashbasket.backend.service;
 
 import com.flashbasket.backend.dto.UserDTO;
+import com.flashbasket.backend.model.User;
+
 import java.util.List;
 
 public interface UserService {
 
-UserDTO createUser(UserDTO dto);
+    UserDTO createUser(UserDTO dto);
 
-UserDTO getUserById(Long id);
+    UserDTO getUserById(Long id);
 
-List<UserDTO> getAllUsers();
+    UserDTO saveUser(UserDTO dto);
 
-void deleteUser(Long id);
+    List<UserDTO> getAllUsers();
 
+    void deleteUser(Long id);
 }

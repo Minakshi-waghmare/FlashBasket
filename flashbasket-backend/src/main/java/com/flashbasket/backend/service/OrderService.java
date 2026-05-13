@@ -5,8 +5,8 @@ import java.util.List;
 
 public interface OrderService {
 
-OrderDTO placeOrder(Long userId);
+OrderDTO createOrder(String username, OrderDTO dto);
 
-List<OrderDTO> getUserOrders(Long userId);
+List<OrderDTO> getUserOrders(String username);
 
 }
