@@ -28,7 +28,6 @@ public class ReviewController {
         return reviewService.getReviewsByProduct(productId);
     }
 
-    // ⭐ Delete review
     @DeleteMapping("/delete/{reviewId}")
     public String deleteReview(@PathVariable Long reviewId) {
         reviewService.deleteReview(reviewId);
