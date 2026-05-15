@@ -9,6 +9,8 @@ public interface CartService {
 
     List<CartItemDTO> getCartByUser(Long userId);
 
+    CartItemDTO updateQuantity(Long cartItemId, Integer quantity);
+
     void removeFromCart(Long cartItemId);
 
     void clearCart(Long userId);

@@ -1,7 +1,6 @@
 package com.flashbasket.backend.service;
 
 import com.flashbasket.backend.dto.UserDTO;
-import com.flashbasket.backend.model.User;
 
 import java.util.List;
 

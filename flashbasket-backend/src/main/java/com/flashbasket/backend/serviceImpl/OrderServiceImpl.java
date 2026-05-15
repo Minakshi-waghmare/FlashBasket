@@ -1,12 +1,14 @@
 package com.flashbasket.backend.serviceImpl;
 
 import com.flashbasket.backend.dto.OrderDTO;
+import com.flashbasket.backend.model.Cart;
 import com.flashbasket.backend.model.CartItem;
 import com.flashbasket.backend.model.Order;
 import com.flashbasket.backend.repository.CartItemRepository;
+import com.flashbasket.backend.repository.CartRepository;
 import com.flashbasket.backend.repository.OrderRepository;
 import com.flashbasket.backend.service.OrderService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -14,71 +16,75 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
+    private final CartItemRepository cartItemRepository;
+    private final CartRepository cartRepository;
+    private final OrderRepository orderRepository;
 
-@Autowired
-private CartItemRepository cartItemRepository;
+    // 📦 PLACE ORDER
+    @Override
+    public OrderDTO createOrder(String username, OrderDTO dto) {
 
-@Autowired
-private OrderRepository orderRepository;
+        Long userId = dto.getUserId();
 
-// 📦 Place Order (Cart → Order)
-@Override
-public OrderDTO createOrder(String username, OrderDTO dto) {
+        // 1️⃣ Get cart
+        Cart cart = cartRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Cart not found"));
 
-    // 1️⃣ Get cart items
-    List<CartItem> cartItems = cartItemRepository.findByUserId(1L);
+        // 2️⃣ Get cart items
+        List<CartItem> cartItems = cartItemRepository.findByCartId(cart.getId());
 
-    if (cartItems.isEmpty()) {
-        throw new RuntimeException("Cart is empty");
+        if (cartItems.isEmpty()) {
+            throw new RuntimeException("Cart is empty");
+        }
+
+        // 3️⃣ Calculate total
+        double totalAmount = cartItems.stream()
+                .mapToDouble(item -> item.getQuantity() *
+                        item.getPriceAtTime().doubleValue())
+                .sum();
+
+        // 4️⃣ Create Order
+        Order order = new Order();
+        order.setUserId(userId);
+        order.setTotalAmount(totalAmount);
+        order.setStatus("PLACED");
+        order.setPaymentStatus("PENDING");
+        order.setOrderDate(LocalDateTime.now());
+
+        Order saved = orderRepository.save(order);
+
+        // 5️⃣ Clear cart (CORRECT WAY)
+        cartItemRepository.deleteByCartId(cart.getId());
+
+        // 6️⃣ Return DTO
+        dto.setId(saved.getId());
+        dto.setTotalAmount(saved.getTotalAmount());
+        dto.setStatus(saved.getStatus());
+        dto.setPaymentStatus(saved.getPaymentStatus());
+
+        return dto;
     }
 
-    // 2️⃣ Calculate total amount (simple logic)
-    double totalAmount = cartItems.stream()
-            .mapToDouble(item -> item.getQuantity() * 100) // assuming price = 100 (demo)
-            .sum();
+    // 📥 GET ORDERS
+    @Override
+    public List<OrderDTO> getUserOrders(String username) {
 
-    // 3️⃣ Create Order
-    Order order = new Order();
-    order.setUserId(1L);
-    order.setTotalAmount(totalAmount);
-    order.setStatus("PLACED");
-    order.setPaymentStatus("PENDING");
-    order.setOrderDate(LocalDateTime.now());
+        Long userId = 1L; // (replace with JWT later)
 
-    Order saved = orderRepository.save(order);
-
-    // 4️⃣ Clear Cart after order
-    cartItemRepository.deleteByUserId(1L);
-
-    // 5️⃣ Return DTO
-    dto.setId(saved.getId());
-    dto.setUserId(saved.getUserId());
-    dto.setTotalAmount(saved.getTotalAmount());
-    dto.setStatus(saved.getStatus());
-    dto.setPaymentStatus(saved.getPaymentStatus());
-
-    return dto;
-}
-
-// 📥 Get User Orders
-@Override
-public List<OrderDTO> getUserOrders(String username) {
-
-    return orderRepository.findByUserIdOrderByIdDesc(1L)
-            .stream()
-            .map(order -> {
-                OrderDTO dto = new OrderDTO();
-                dto.setId(order.getId());
-                dto.setUserId(order.getUserId());
-                dto.setTotalAmount(order.getTotalAmount());
-                dto.setStatus(order.getStatus());
-                dto.setPaymentStatus(order.getPaymentStatus());
-                return dto;
-            })
-            .collect(Collectors.toList());
-}
-
-
+        return orderRepository.findByUserIdOrderByIdDesc(userId)
+                .stream()
+                .map(order -> {
+                    OrderDTO dto = new OrderDTO();
+                    dto.setId(order.getId());
+                    dto.setUserId(order.getUserId());
+                    dto.setTotalAmount(order.getTotalAmount());
+                    dto.setStatus(order.getStatus());
+                    dto.setPaymentStatus(order.getPaymentStatus());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
 }
