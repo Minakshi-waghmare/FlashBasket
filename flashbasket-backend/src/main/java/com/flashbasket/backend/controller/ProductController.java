@@ -39,4 +39,8 @@ public class ProductController {
         productService.deleteProduct(id);
         return "Product deleted successfully";
     }
+    @GetMapping("/category/{id}")
+public List<ProductDTO> getByCategory(@PathVariable Long id) {
+    return productService.getProductsByCategory(id);
+}
 }

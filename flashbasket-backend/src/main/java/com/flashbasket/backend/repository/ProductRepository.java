@@ -1,6 +1,7 @@
 package com.flashbasket.backend.repository;
 
 import com.flashbasket.backend.model.Product;
+import com.flashbasket.backend.model.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,6 +15,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     // 🏷️ Filter by categoryId
     List<Product> findByCategoryId(Long categoryId);
+
+    // 🏷️ Filter by category
+    List<Product> findByCategory(Category category);
+
+    // 💰 Filter by price range
+    List<Product> findByPriceBetween(Double minPrice, Double maxPrice);
 
     // 💰 Price low → high
     List<Product> findAllByOrderByPriceAsc();
