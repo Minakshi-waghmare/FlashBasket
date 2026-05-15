@@ -1,32 +1,36 @@
 package com.flashbasket.backend.repository;
 
 import com.flashbasket.backend.model.Product;
+import com.flashbasket.backend.model.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import com.flashbasket.backend.model.Category;
 
+@Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
+    // 🔍 Search product by name
+    List<Product> findByNameContainingIgnoreCase(String name);
 
-// 🔍 Search product by name
-List<Product> findByNameContainingIgnoreCase(String name);
+    // 🏷️ Filter by categoryId
+    List<Product> findByCategoryId(Long categoryId);
 
-// 🏷️ Filter by categoryId
-List<Product> findByCategoryId(Long categoryId);
+    // 🏷️ Filter by category
+    List<Product> findByCategory(Category category);
 
-// 💰 Sort by price (low → high)
-List<Product> findAllByOrderByPriceAsc();
+    // 💰 Filter by price range
+    List<Product> findByPriceBetween(Double minPrice, Double maxPrice);
 
-// 💰 Sort by price (high → low)
-List<Product> findAllByOrderByPriceDesc();
+    // 💰 Price low → high
+    List<Product> findAllByOrderByPriceAsc();
 
-// 📦 Get products with stock available
-List<Product> findByStockGreaterThan(int stock);
+    // 💰 Price high → low
+    List<Product> findAllByOrderByPriceDesc();
 
-List<Product> findByCategory(Category category);
+    // 📦 Products in stock
+    List<Product> findByStockGreaterThan(int stock);
 
-List<Product> findByPriceBetween(Double minPrice, Double maxPrice);
-
-
+    // ❗ Prevent duplicate product
+    boolean existsByNameIgnoreCase(String name);
 }

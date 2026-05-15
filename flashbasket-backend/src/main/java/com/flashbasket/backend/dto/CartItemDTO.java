@@ -5,9 +5,15 @@ public class CartItemDTO {
     private Long id;
     private Long userId;
     private Long productId;
-    private int quantity;
 
-    // Getters and Setters
+    private String productName;
+    private double price;
+    private Integer quantity;
+
+    public CartItemDTO() {
+    }
+
+    // 🔹 ID
     public Long getId() {
         return id;
     }
@@ -16,6 +22,7 @@ public class CartItemDTO {
         this.id = id;
     }
 
+    // 🔹 User ID
     public Long getUserId() {
         return userId;
     }
@@ -24,6 +31,7 @@ public class CartItemDTO {
         this.userId = userId;
     }
 
+    // 🔹 Product ID
     public Long getProductId() {
         return productId;
     }
@@ -32,11 +40,30 @@ public class CartItemDTO {
         this.productId = productId;
     }
 
-    public int getQuantity() {
+    // 🔹 Product Name
+    public String getProductName() {
+        return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
+    }
+
+    // 🔹 Price
+    public double getPrice() {
+        return price;
+    }
+
+    public void setPrice(double price) {
+        this.price = price;
+    }
+
+    // 🔹 Quantity
+    public Integer getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(Integer quantity) {
         this.quantity = quantity;
     }
 }

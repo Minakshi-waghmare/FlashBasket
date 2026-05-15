@@ -2,10 +2,10 @@ package com.flashbasket.backend.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.JoinColumn;
+import java.math.BigDecimal;
 
 @Entity
+@Table(name = "cart_items")
 @Data
 public class CartItem {
 
@@ -13,14 +13,15 @@ public class CartItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long userId;     
-    private Long productId; 
- 
-    private Integer quantity;
-
-    private double price;
-
     @ManyToOne
     @JoinColumn(name = "cart_id")
     private Cart cart;
+
+    @ManyToOne
+    @JoinColumn(name = "product_id")
+    private Product product;
+
+    private Integer quantity;
+
+    private BigDecimal priceAtTime;
 }

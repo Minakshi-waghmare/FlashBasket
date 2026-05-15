@@ -8,15 +8,14 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // 🔹 Check if email exists (register validation)
+    boolean existsByEmail(String email);
 
-// 🔹 Check if email exists (register validation)
-boolean existsByEmail(String email);
+    // 🔹 Login
+    Optional<User> findByEmail(String email);
 
-// 🔹 Login
-Optional<User> findByEmail(String email);
+    // 🔹 Search users by name (optional feature)
+    List<User> findByNameContainingIgnoreCase(String name);
 
-// 🔹 Search users by name (optional feature)
-List<User> findByNameContainingIgnoreCase(String name);
-
-
+    boolean existsByEmailIgnoreCase(String email);
 }
