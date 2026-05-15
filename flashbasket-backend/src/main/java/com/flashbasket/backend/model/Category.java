@@ -13,15 +13,15 @@ import java.util.List;
 @AllArgsConstructor
 public class Category {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String name;
+	private String name;
 
-    private String description;
+	private String description;
 
-    public Long getId() {
+	public Long getId() {
 		return id;
 	}
 
@@ -54,5 +54,5 @@ public class Category {
 	}
 
 	@OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
-    private List<Product> products;
+	private List<Product> products;
 }

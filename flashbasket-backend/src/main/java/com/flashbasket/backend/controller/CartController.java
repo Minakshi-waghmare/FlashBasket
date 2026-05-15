@@ -1,27 +1,47 @@
 package com.flashbasket.backend.controller;
 
-import com.flashbasket.backend.dto.CartDTO;
-import com.flashbasket.backend.model.Cart;
+import com.flashbasket.backend.dto.CartItemDTO;
 import com.flashbasket.backend.service.CartService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/cart")
 @RequiredArgsConstructor
+@CrossOrigin("*")
 public class CartController {
+
     private final CartService cartService;
 
-    @GetMapping
-    public ResponseEntity<Cart> getCart(@AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(cartService.getCartByUser(userDetails.getUsername()));
+    @PostMapping("/add")
+    public ResponseEntity<CartItemDTO> addToCart(@RequestBody CartItemDTO dto) {
+        return ResponseEntity.ok(cartService.addToCart(dto));
     }
 
-    @PostMapping("/add")
-    public ResponseEntity<Cart> addToCart(@AuthenticationPrincipal UserDetails userDetails, @RequestBody CartDTO req) {
-        return ResponseEntity.ok(cartService.addItemToCart(userDetails.getUsername(), req.getProductId(), req.getQuantity()));
+    @GetMapping("/{userId}")
+    public ResponseEntity<List<CartItemDTO>> getCart(@PathVariable Long userId) {
+        return ResponseEntity.ok(cartService.getCartByUser(userId));
+    }
+
+    @PutMapping("/update/{cartItemId}")
+    public ResponseEntity<CartItemDTO> updateQuantity(
+            @PathVariable Long cartItemId,
+            @RequestParam Integer quantity) {
+        return ResponseEntity.ok(cartService.updateQuantity(cartItemId, quantity));
+    }
+
+    @DeleteMapping("/remove/{cartItemId}")
+    public ResponseEntity<String> removeItem(@PathVariable Long cartItemId) {
+        cartService.removeFromCart(cartItemId);
+        return ResponseEntity.ok("Item removed");
+    }
+
+    @DeleteMapping("/clear/{userId}")
+    public ResponseEntity<String> clearCart(@PathVariable Long userId) {
+        cartService.clearCart(userId);
+        return ResponseEntity.ok("Cart cleared");
     }
 }

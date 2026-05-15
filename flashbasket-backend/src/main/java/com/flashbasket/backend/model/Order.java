@@ -16,13 +16,12 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private Long userId; 
 
     private LocalDateTime orderDate = LocalDateTime.now();
     private Double totalAmount;
     private String status;
+    private String paymentStatus;
     private String shippingAddress;
     private String paymentMethod;
 }

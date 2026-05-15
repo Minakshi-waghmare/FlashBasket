@@ -1,6 +1,6 @@
 package com.flashbasket.backend.controller;
 
-import com.flashbasket.backend.model.User;
+import com.flashbasket.backend.dto.UserDTO;
 import com.flashbasket.backend.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,21 +13,24 @@ public class UserController {
 
     private final UserService userService;
 
-    // Constructor Injection (Best Practice)
+    // Constructor Injection
     public UserController(UserService userService) {
         this.userService = userService;
     }
 
     // CREATE USER
     @PostMapping
-    public ResponseEntity<User> addUser(@RequestBody User user) {
-        User savedUser = userService.saveUser(user);
+    public ResponseEntity<UserDTO> addUser(@RequestBody UserDTO dto) {
+
+        UserDTO savedUser = userService.saveUser(dto);
+
         return ResponseEntity.ok(savedUser);
     }
 
     // GET ALL USERS
     @GetMapping
-    public ResponseEntity<List<User>> getUsers() {
+    public ResponseEntity<List<UserDTO>> getUsers() {
+
         return ResponseEntity.ok(userService.getAllUsers());
     }
 }

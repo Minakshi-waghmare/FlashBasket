@@ -1,38 +1,18 @@
 package com.flashbasket.backend.service;
 
-import com.flashbasket.backend.model.User;
-import com.flashbasket.backend.repository.UserRepository;
-import org.springframework.stereotype.Service;
+import com.flashbasket.backend.dto.UserDTO;
 
 import java.util.List;
 
-@Service
-public class UserService {
+public interface UserService {
 
-    private final UserRepository userRepository;
+    UserDTO createUser(UserDTO dto);
 
-    // Constructor Injection
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+    UserDTO getUserById(Long id);
 
-    // SAVE USER
-    public User saveUser(User user) {
+    UserDTO saveUser(UserDTO dto);
 
-        // Check if email already exists
-        if (userRepository.existsByEmail(user.getEmail())) {
-            throw new RuntimeException("Email already exists!");
-        }
+    List<UserDTO> getAllUsers();
 
-        return userRepository.save(user);
-    }
-
-    // GET ALL USERS
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
-    public User findByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
+    void deleteUser(Long id);
 }
