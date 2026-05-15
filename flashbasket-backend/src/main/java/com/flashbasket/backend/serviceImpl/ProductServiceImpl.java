@@ -81,6 +81,17 @@ public class ProductServiceImpl implements ProductService {
         productRepository.delete(product);
     }
 
+    @Override
+public List<ProductDTO> getProductsByCategory(Long categoryId) {
+
+    Category category = getCategoryById(categoryId);
+
+    return productRepository.findByCategory(category)
+            .stream()
+            .map(ProductMapper::toDTO)
+            .collect(Collectors.toList());
+}
+
     // ===================== 🔥 Helper Methods =====================
 
     private Product getProductEntityById(Long id) {
