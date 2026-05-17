@@ -96,7 +96,11 @@
             <artifactId>jakarta.servlet-api</artifactId>
             <scope>provided</scope>
         </dependency>
-
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.7</version>
+        </dependency>
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
