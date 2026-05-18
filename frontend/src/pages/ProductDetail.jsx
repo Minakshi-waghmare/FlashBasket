@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Heart, Share2, ShieldCheck, Truck, RotateCcw, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { ShoppingCart, Heart, Share2, ShieldCheck, Truck, RotateCcw, AlertCircle, CheckCircle2, XCircle, Star, MessageSquare, Trash2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
 const ProductDetail = () => {
@@ -8,6 +8,36 @@ const ProductDetail = () => {
   // Mock data for demonstration. In a real app, this comes from backend.
   const [stockQuantity, setStockQuantity] = useState(5); // Change to 0 to see Out of Stock, > 10 for In Stock
   const [quantity, setQuantity] = useState(1);
+  
+  // Review states
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviews, setReviews] = useState([
+    { id: 1, user: 'Alex M.', rating: 5, date: '2 days ago', comment: 'Absolutely love these headphones! The ANC is incredible and the battery lasts forever.' },
+    { id: 2, user: 'Sarah K.', rating: 4, date: '1 week ago', comment: 'Great sound, but the ear cups are slightly tight for long sessions. Otherwise perfect.' }
+  ]);
+
+  const handleSubmitReview = (e) => {
+    e.preventDefault();
+    if (rating === 0 || !reviewText.trim()) return;
+    
+    const newReview = {
+      id: reviews.length + 1,
+      user: 'Current User', 
+      rating,
+      date: 'Just now',
+      comment: reviewText
+    };
+    
+    setReviews([newReview, ...reviews]);
+    setRating(0);
+    setReviewText('');
+  };
+
+  const handleDeleteReview = (id) => {
+    setReviews(reviews.filter(review => review.id !== id));
+  };
 
   const handleIncrement = () => {
     if (quantity < stockQuantity) {
@@ -119,6 +149,98 @@ const ProductDetail = () => {
                 </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Customer Reviews Section */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 md:p-12 mt-8">
+        <div className="flex flex-col lg:flex-row gap-12">
+          
+          {/* Write a Review Form */}
+          <div className="lg:w-1/3">
+            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <MessageSquare className="text-orange-500 w-6 h-6" /> Write a Review
+            </h2>
+            <form onSubmit={handleSubmitReview} className="bg-slate-50 p-6 md:p-8 rounded-2xl border border-slate-100">
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-slate-700 mb-3">Overall Rating</p>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`w-9 h-9 cursor-pointer transition-all hover:scale-110 ${
+                        (hoverRating || rating) >= star ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                      }`}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setRating(star)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Your Review</label>
+                <textarea 
+                  rows="4" 
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="What did you like or dislike about this product?"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all resize-none bg-white"
+                ></textarea>
+              </div>
+              <button 
+                type="submit"
+                disabled={rating === 0 || !reviewText.trim()}
+                className="w-full bg-slate-900 hover:bg-orange-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:shadow-orange-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-900 disabled:hover:shadow-none active:scale-95"
+              >
+                Submit Review
+              </button>
+            </form>
+          </div>
+
+          {/* Review List */}
+          <div className="lg:w-2/3">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold text-slate-900">Customer Reviews ({reviews.length})</h2>
+              <div className="text-amber-400 flex items-center text-xl font-bold">
+                <Star className="fill-amber-400 w-6 h-6 mr-2" /> 4.5
+              </div>
+            </div>
+            
+            <div className="space-y-6">
+              {reviews.map((review) => (
+                <div key={review.id} className="border-b border-slate-100 pb-6 last:border-0 last:pb-0 animate-in fade-in slide-in-from-bottom-2">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500">
+                        {review.user.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900">{review.user}</p>
+                        <div className="flex text-amber-400 mt-1 gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'fill-slate-200 text-slate-200'}`} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">{review.date}</span>
+                      <button 
+                        onClick={() => handleDeleteReview(review.id)}
+                        className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
+                        title="Delete Review"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-slate-600 mt-4 leading-relaxed pl-13 md:pl-0">{review.comment}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

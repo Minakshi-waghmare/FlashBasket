@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Search, User, Mic, Heart } from 'lucide-react';
+import { ShoppingCart, Search, User, Mic, Heart, Headset } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
@@ -80,6 +80,10 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center space-x-8">
+            <Link to="/contact" className="flex flex-col items-center text-slate-600 hover:text-orange-500 transition-colors group hidden sm:flex">
+              <Headset className="h-6 w-6 group-hover:-translate-y-1 transition-transform" />
+              <span className="text-xs font-semibold mt-1">Contact</span>
+            </Link>
             <Link to="/login" className="flex flex-col items-center text-slate-600 hover:text-orange-500 transition-colors group">
               <User className="h-6 w-6 group-hover:-translate-y-1 transition-transform" />
               <span className="text-xs font-semibold mt-1">Profile</span>

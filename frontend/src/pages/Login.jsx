@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
   return (
@@ -35,12 +36,22 @@ const Login = () => {
           <a href="#" className="text-xs text-center text-slate-500 uppercase font-bold">or sign in with</a>
           <span className="border-b border-slate-200 w-1/5 lg:w-1/4"></span>
         </div>
-        
-        <button className="w-full mt-6 bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-3 rounded-xl flex items-center justify-center transition-all">
-          <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="h-5 w-5 mr-3" />
-          Google
-        </button>
-        
+        <div className="mt-6 flex justify-center w-full">
+          <GoogleLogin
+            onSuccess={credentialResponse => {
+              console.log('Google Sign-In Success:', credentialResponse);
+              // Send credentialResponse.credential to your Spring Boot backend for validation
+            }}
+            onError={() => {
+              console.error('Google Sign-In Failed');
+            }}
+            useOneTap
+            shape="rectangular"
+            theme="outline"
+            size="large"
+            text="signin_with"
+          />
+        </div>
         <div className="mt-8 pt-8 border-t border-slate-100 text-center">
           <p className="text-slate-500">Don't have an account? <Link to="/register" className="text-orange-500 font-bold hover:underline">Sign Up</Link></p>
         </div>

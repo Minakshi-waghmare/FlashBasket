@@ -11,6 +11,8 @@ import Search from './pages/Search';
 import Category from './pages/Category';
 import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
+import Contact from './pages/Contact';
+
 
 function App() {
   return (
@@ -27,6 +29,7 @@ function App() {
           <Route path="/category/:categoryName" element={<Category />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order-success" element={<OrderSuccess />} />
+          <Route path="/contact" element={<Contact />} />
         </Routes>
       </Layout>
     </Router>
