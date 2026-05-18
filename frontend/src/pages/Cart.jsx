@@ -67,9 +67,9 @@ const Cart = () => {
               </div>
             </div>
             
-            <button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-orange-500/30 transform hover:-translate-y-1 transition-all flex items-center justify-center text-lg mb-4">
+            <Link to="/checkout" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-orange-500/30 transform hover:-translate-y-1 transition-all flex items-center justify-center text-lg mb-4">
               Proceed to Checkout <ArrowRight className="ml-2 h-5 w-5" />
-            </button>
+            </Link>
             <Link to="/" className="w-full block text-center text-slate-500 hover:text-orange-500 font-semibold transition-colors">
               Continue Shopping
             </Link>
