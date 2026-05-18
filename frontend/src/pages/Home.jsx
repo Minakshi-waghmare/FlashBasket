@@ -1,6 +1,17 @@
 import React from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Smartphone, Shirt, Home as HomeIcon, Watch, Book, Dumbbell } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+const featuredProducts = [
+  { id: 101, name: "Sony WH-1000XM5 Noise Cancelling", price: "₹29,990", tag: "Hot Deal" },
+  { id: 102, name: "Apple Watch Series 9 GPS", price: "₹41,900", tag: "New" },
+  { id: 103, name: "Samsung Galaxy S24 Ultra", price: "₹1,29,999", tag: "Best Seller" },
+  { id: 104, name: "Nike Air Max 2024 Running", price: "₹12,495", tag: "Trending" },
+  { id: 105, name: "MacBook Pro M3 14-inch", price: "₹1,69,900", tag: "Offer" },
+  { id: 106, name: "Dyson V15 Detect Vacuum", price: "₹62,900", tag: "Sale" },
+  { id: 107, name: "PlayStation 5 Console", price: "₹54,990", tag: "Limited" },
+  { id: 108, name: "Canon EOS R5 Mirrorless", price: "₹3,39,995", tag: "Top Rated" }
+];
 
 const Home = () => {
   return (
@@ -33,6 +44,67 @@ const Home = () => {
                      </div>
                   </div>
               </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Categories Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
+        <h2 className="text-3xl font-bold text-slate-900 tracking-tight mb-8">Shop by Category</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          {[
+            { name: 'Electronics', icon: <Smartphone className="w-8 h-8 text-orange-500" />, path: '/category/electronics' },
+            { name: 'Fashion', icon: <Shirt className="w-8 h-8 text-orange-500" />, path: '/category/fashion' },
+            { name: 'Home & Kitchen', icon: <HomeIcon className="w-8 h-8 text-orange-500" />, path: '/category/home-kitchen' },
+            { name: 'Accessories', icon: <Watch className="w-8 h-8 text-orange-500" />, path: '/category/accessories' },
+            { name: 'Books', icon: <Book className="w-8 h-8 text-orange-500" />, path: '/category/books' },
+            { name: 'Sports', icon: <Dumbbell className="w-8 h-8 text-orange-500" />, path: '/category/sports' },
+          ].map((cat) => (
+            <Link key={cat.name} to={cat.path} className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+              <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                {cat.icon}
+              </div>
+              <span className="font-semibold text-slate-700 text-center group-hover:text-orange-500 transition-colors">{cat.name}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Flash Deals Marquee Section */}
+      <div className="py-12 bg-white overflow-hidden border-t border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+            <span className="text-orange-500 animate-pulse">⚡</span> Flash Deals
+          </h2>
+          <p className="text-slate-500 mt-2">Grab them before they are gone!</p>
+        </div>
+        
+        <div className="relative flex overflow-x-hidden group">
+          {/* We duplicate the array to create a seamless infinite loop */}
+          <div className="animate-marquee-scroll flex whitespace-nowrap hover:[animation-play-state:paused] w-max">
+            {[...featuredProducts, ...featuredProducts].map((item, index) => (
+              <div key={index} className="w-72 mx-4 flex-none">
+                <Link to={`/product/${item.id}`} className="block bg-slate-50 rounded-2xl p-4 shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 relative group/card hover:-translate-y-1">
+                  {item.tag && (
+                    <span className="absolute top-4 left-4 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10 shadow-sm tracking-wide">
+                      {item.tag}
+                    </span>
+                  )}
+                  <div className="h-48 bg-slate-200 rounded-xl mb-4 flex items-center justify-center overflow-hidden shadow-inner transition-all duration-300">
+                    <span className="text-slate-400 font-medium">Add Image Here</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800 mb-1 truncate group-hover/card:text-orange-500 transition-colors">{item.name}</h3>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xl font-black text-slate-900">{item.price}</span>
+                      <button className="bg-slate-900 hover:bg-orange-500 text-white rounded-full w-9 h-9 flex items-center justify-center transition-colors shadow-md active:scale-95">
+                        <ShoppingCart className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            ))}
           </div>
         </div>
       </div>
