@@ -11,25 +11,22 @@ const Search = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (query) {
-      searchProducts();
-    } else {
-      setResults([]);
-    }
+    searchProducts();
   }, [query]);
 
   const searchProducts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('product') // Changed from 'products' to 'product'
-        .select('*')
-        .ilike('name', `%${query}%`);
+      let queryBuilder = supabase.from('product').select('*');
+      
+      if (query) {
+        queryBuilder = queryBuilder.ilike('name', `%${query}%`);
+      }
+      
+      const { data, error } = await queryBuilder;
         
       if (error) throw error;
-      if (data) {
-        setResults(data);
-      }
+      setResults(data || []);
     } catch (error) {
       console.error("Error searching products:", error);
     } finally {
@@ -41,30 +38,36 @@ const Search = () => {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      alert("Please login to add items to your cart.");
+      window.showToast?.("Please login to add items to your cart.", "info");
       return;
     }
     
     try {
       await addToCartLogic(user, productId);
       
-      alert("Added to cart successfully!");
+      window.showToast?.("Added to cart successfully!", "success");
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (err) {
       if (err.message === "ADDRESS_REQUIRED") {
-        alert("Please save a delivery address before adding products to your cart.");
+        window.showToast?.("Please save a delivery address before adding products to your cart.", "warning");
         window.location.href = '/checkout';
         return;
       }
       console.error("Error adding to cart:", err);
-      alert("Could not add to cart. Error: " + (err.message || "Unknown error"));
+      window.showToast?.("Could not add to cart. Error: " + (err.message || "Unknown error"), "error");
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 min-h-[60vh]">
-      <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Search Results</h1>
-      <p className="text-slate-500 mb-8">Showing results for "{query}"</p>
+      <h1 className="text-3xl font-extrabold text-slate-900 mb-2">
+        {query ? 'Search Results' : 'All Products'}
+      </h1>
+      {query ? (
+        <p className="text-slate-500 mb-8 font-medium">Showing results for "{query}"</p>
+      ) : (
+        <p className="text-slate-500 mb-8 font-medium">Browse our full catalog of premium products</p>
+      )}
 
       {loading ? (
         <div className="text-center py-20 text-slate-500 font-bold text-xl">Searching...</div>

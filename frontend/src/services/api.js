@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from './supabase';
 
 // Change this to match your Spring Boot backend URL
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
@@ -12,10 +13,14 @@ const api = axios.create({
 
 // Request interceptor to automatically add JWT token to headers if the user is logged in
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        config.headers.Authorization = `Bearer ${session.access_token}`;
+      }
+    } catch (err) {
+      console.warn("Could not retrieve Supabase session for API authorization:", err);
     }
     return config;
   },

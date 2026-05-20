@@ -34,6 +34,70 @@ const Login = () => {
     }
   };
 
+  const syncUserToPublicDb = async (userObj) => {
+    try {
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', userObj.email)
+        .maybeSingle();
+
+      if (!dbUser) {
+        await supabase
+          .from('users')
+          .insert([{
+            email: userObj.email,
+            name: userObj.user_metadata?.full_name || userObj.email.split('@')[0],
+            role: 'customer'
+          }]);
+      }
+    } catch (err) {
+      console.error("Error syncing user to public DB:", err);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: oauthError } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: credentialResponse.credential,
+      });
+
+      if (oauthError) throw oauthError;
+
+      if (data && data.user) {
+        await syncUserToPublicDb(data.user);
+      }
+
+      navigate('/');
+    } catch (err) {
+      console.error("Google Login Error:", err);
+      setError("Google Login failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleOAuthRedirect = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: redirectError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (redirectError) throw redirectError;
+    } catch (err) {
+      console.error("Google OAuth Redirect Error:", err);
+      setError("Google Redirect failed: " + err.message);
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto px-4 py-20">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8">
@@ -64,7 +128,7 @@ const Login = () => {
             <div>
               <div className="flex justify-between mb-1">
                 <label className="block text-sm font-bold text-slate-700">Password</label>
-                <a href="#" className="text-sm font-semibold text-orange-500 hover:text-orange-600">Forgot Password?</a>
+                <Link to="/forgot-password" className="text-sm font-semibold text-orange-500 hover:text-orange-600">Forgot Password?</Link>
               </div>
               <input 
                 type="password" 
@@ -88,19 +152,13 @@ const Login = () => {
 
         <div className="mt-6 flex items-center justify-between">
           <span className="border-b border-slate-200 w-1/5 lg:w-1/4"></span>
-          <a href="#" className="text-xs text-center text-slate-500 uppercase font-bold">or sign in with</a>
+          <span className="text-xs text-center text-slate-500 uppercase font-bold">or sign in with</span>
           <span className="border-b border-slate-200 w-1/5 lg:w-1/4"></span>
         </div>
-        <div className="mt-6 flex justify-center w-full">
+        <div className="mt-6 flex flex-col gap-4 items-center w-full">
           <GoogleLogin
-            onSuccess={credentialResponse => {
-              console.log('Google Sign-In Success:', credentialResponse);
-              // Handle Supabase Google OAuth if configured
-            }}
-            onError={() => {
-              console.error('Google Sign-In Failed');
-            }}
-            useOneTap
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Sign-In failed.')}
             shape="rectangular"
             theme="outline"
             size="large"

@@ -30,7 +30,7 @@ const Register = () => {
 
       if (signUpError) throw signUpError;
 
-      alert('Registration successful! Check your email for a confirmation link (if enabled in Supabase).');
+      window.showToast?.('Registration successful! Please login.', 'success');
       navigate('/login');
       
     } catch (err) {

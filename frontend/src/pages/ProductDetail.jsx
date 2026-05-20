@@ -14,17 +14,16 @@ const ProductDetail = () => {
   const [stockQuantity, setStockQuantity] = useState(0);
   const [quantity, setQuantity] = useState(1);
   
-  // Review states (keeping local for now, but can be moved to Supabase later)
+  // Review states connected to Supabase
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
-  const [reviews, setReviews] = useState([
-    { id: 1, user: 'Alex M.', rating: 5, date: '2 days ago', comment: 'Absolutely love these headphones! The ANC is incredible and the battery lasts forever.' },
-    { id: 2, user: 'Sarah K.', rating: 4, date: '1 week ago', comment: 'Great sound, but the ear cups are slightly tight for long sessions. Otherwise perfect.' }
-  ]);
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
 
   useEffect(() => {
     fetchProduct();
+    fetchReviews();
   }, [id]);
 
   const fetchProduct = async () => {
@@ -50,25 +49,79 @@ const ProductDetail = () => {
     }
   };
 
-  const handleSubmitReview = (e) => {
-    e.preventDefault();
-    if (rating === 0 || !reviewText.trim()) return;
-    
-    const newReview = {
-      id: reviews.length + 1,
-      user: 'Current User', 
-      rating,
-      date: 'Just now',
-      comment: reviewText
-    };
-    
-    setReviews([newReview, ...reviews]);
-    setRating(0);
-    setReviewText('');
+  const fetchReviews = async () => {
+    try {
+      setLoadingReviews(true);
+      const { data, error } = await supabase
+        .from('review')
+        .select('*')
+        .eq('product_id', id)
+        .order('id', { ascending: false });
+      
+      if (error) throw error;
+      setReviews(data || []);
+    } catch (err) {
+      console.error("Error fetching reviews:", err);
+    } finally {
+      setLoadingReviews(false);
+    }
   };
 
-  const handleDeleteReview = (id) => {
-    setReviews(reviews.filter(review => review.id !== id));
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (rating === 0 || !reviewText.trim()) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.showToast?.("Please login to submit a review.", "info");
+      return;
+    }
+
+    const userName = user.user_metadata?.full_name || user.email.split('@')[0];
+    
+    try {
+      const { error } = await supabase
+        .from('review')
+        .insert([{
+          product_id: parseInt(id),
+          rating: rating,
+          comment: reviewText,
+          user_name: userName
+        }]);
+
+      if (error) throw error;
+
+      window.showToast?.("Review submitted successfully!", "success");
+      await fetchReviews();
+      setRating(0);
+      setReviewText('');
+    } catch (err) {
+      console.error("Error submitting review:", err);
+      window.showToast?.("Could not submit review. Error: " + err.message, "error");
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.showToast?.("Please login to delete a review.", "info");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('review')
+        .delete()
+        .eq('id', reviewId);
+
+      if (error) throw error;
+
+      window.showToast?.("Review deleted successfully!", "success");
+      await fetchReviews();
+    } catch (err) {
+      console.error("Error deleting review:", err);
+      window.showToast?.("Could not delete review. Error: " + err.message, "error");
+    }
   };
 
   const handleIncrement = () => {
@@ -86,52 +139,84 @@ const ProductDetail = () => {
   const addToCart = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      alert("Please login to add items to your cart.");
+      window.showToast?.("Please login to add items to your cart.", "info");
       return;
     }
     
     try {
       await addToCartLogic(user, product.id, quantity);
       
-      alert("Added to cart successfully!");
+      window.showToast?.("Added to cart successfully!", "success");
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (err) {
       if (err.message === "ADDRESS_REQUIRED") {
-        alert("Please save a delivery address before adding products to your cart.");
+        window.showToast?.("Please save a delivery address before adding products to your cart.", "warning");
         window.location.href = '/checkout';
         return;
       }
       console.error("Error adding to cart:", err);
-      alert("Could not add to cart. Error: " + (err.message || "Unknown error"));
+      window.showToast?.("Could not add to cart. Error: " + (err.message || "Unknown error"), "error");
     }
   };
 
   const addToWishlist = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      alert("Please login to add items to your wishlist.");
+      window.showToast?.("Please login to add items to your wishlist.", "info");
       return;
     }
     
     try {
+      // Get the bigint user_id
+      let dbUserId = null;
+      try {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle();
+        if (dbUser) {
+          dbUserId = dbUser.id;
+        } else {
+          // Sync user
+          const { data: newUser } = await supabase
+            .from('users')
+            .insert([{
+              email: user.email,
+              name: user.user_metadata?.full_name || user.email.split('@')[0],
+              role: 'customer'
+            }])
+            .select('id')
+            .maybeSingle();
+          dbUserId = newUser ? newUser.id : null;
+        }
+      } catch (dbErr) {
+        console.error("Error fetching/syncing dbUserId in ProductDetail:", dbErr);
+      }
+
+      if (!dbUserId) {
+        window.showToast?.("Could not sync your user account. Please try signing out and signing in again.", "error");
+        return;
+      }
+
       const { error } = await supabase
         .from('wishlist')
-        .insert([{ user_id: user.id, product_id: product.id }]);
+        .insert([{ user_id: dbUserId, product_id: product.id }]);
         
       if (error) {
         if (error.code === '23505') {
-            alert("This item is already in your wishlist!");
+          window.showToast?.("This item is already in your wishlist!", "warning");
         } else {
-            console.error("Error adding to wishlist:", error);
-            alert("Could not add to wishlist. Error: " + error.message);
+          console.error("Error adding to wishlist:", error);
+          window.showToast?.("Could not add to wishlist. Error: " + error.message, "error");
         }
       } else {
-        alert("Added to wishlist successfully!");
+        window.showToast?.("Added to wishlist successfully!", "success");
         window.dispatchEvent(new Event('wishlistUpdated'));
       }
     } catch (err) {
       console.error(err);
-      alert("Could not add to wishlist. Error: " + (err.message || "Unknown error"));
+      window.showToast?.("Could not add to wishlist. Error: " + (err.message || "Unknown error"), "error");
     }
   };
 
@@ -165,9 +250,14 @@ const ProductDetail = () => {
             
             <div className="flex items-center mb-6">
               <div className="flex text-amber-400 text-lg mr-3">
-                {'★'.repeat(Math.round(product.rating || 4))}{'☆'.repeat(5 - Math.round(product.rating || 4))}
+                {(() => {
+                  const calculatedRating = reviews.length > 0
+                    ? Math.round(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
+                    : Math.round(product.rating || 5);
+                  return '★'.repeat(calculatedRating) + '☆'.repeat(5 - calculatedRating);
+                })()}
               </div>
-              <span className="text-slate-500 font-medium underline cursor-pointer">{product.reviews_count || reviews.length} Reviews</span>
+              <span className="text-slate-500 font-medium underline cursor-pointer">{reviews.length} Reviews</span>
             </div>
 
             <div className="mb-6 flex items-end">
@@ -305,41 +395,51 @@ const ProductDetail = () => {
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold text-slate-900">Customer Reviews ({reviews.length})</h2>
               <div className="text-amber-400 flex items-center text-xl font-bold">
-                <Star className="fill-amber-400 w-6 h-6 mr-2" /> 4.5
+                <Star className="fill-amber-400 w-6 h-6 mr-2" /> {
+                  reviews.length > 0
+                    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+                    : '5.0'
+                }
               </div>
             </div>
             
             <div className="space-y-6">
-              {reviews.map((review) => (
-                <div key={review.id} className="border-b border-slate-100 pb-6 last:border-0 last:pb-0 animate-in fade-in slide-in-from-bottom-2">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500">
-                        {review.user.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900">{review.user}</p>
-                        <div className="flex text-amber-400 mt-1 gap-0.5">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'fill-slate-200 text-slate-200'}`} />
-                          ))}
+              {loadingReviews ? (
+                <div className="text-slate-500 py-4">Loading reviews...</div>
+              ) : reviews.length === 0 ? (
+                <div className="text-slate-400 italic py-4">No reviews yet for this product. Be the first to write one!</div>
+              ) : (
+                reviews.map((review) => (
+                  <div key={review.id} className="border-b border-slate-100 pb-6 last:border-0 last:pb-0 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500 uppercase">
+                          {(review.user_name || 'A').charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{review.user_name || 'Anonymous'}</p>
+                          <div className="flex text-amber-400 mt-1 gap-0.5">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'fill-slate-200 text-slate-200'}`} />
+                            ))}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">Verified Purchase</span>
+                        <button 
+                          onClick={() => handleDeleteReview(review.id)}
+                          className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
+                          title="Delete Review"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">{review.date}</span>
-                      <button 
-                        onClick={() => handleDeleteReview(review.id)}
-                        className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
-                        title="Delete Review"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <p className="text-slate-600 mt-4 leading-relaxed pl-13 md:pl-0">{review.comment}</p>
                   </div>
-                  <p className="text-slate-600 mt-4 leading-relaxed pl-13 md:pl-0">{review.comment}</p>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 

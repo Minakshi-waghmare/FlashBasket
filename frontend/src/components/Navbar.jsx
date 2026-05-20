@@ -16,7 +16,7 @@ const Navbar = () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        fetchCounts(user.id);
+        fetchCounts(user);
       }
     };
 
@@ -24,40 +24,83 @@ const Navbar = () => {
 
     const handleWishlistUpdate = () => {
       supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) fetchCounts(user.id);
+        if (user) fetchCounts(user);
       });
     };
 
     const handleCartUpdate = () => {
       supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) fetchCounts(user.id);
+        if (user) fetchCounts(user);
       });
     };
 
     window.addEventListener('wishlistUpdated', handleWishlistUpdate);
     window.addEventListener('cartUpdated', handleCartUpdate);
 
+    // Listen to Supabase auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      if (currentUser) {
+        if (session?.access_token) {
+          localStorage.setItem('token', session.access_token);
+        }
+        fetchCounts(currentUser);
+      } else {
+        localStorage.removeItem('token');
+        setWishlistCount(0);
+        setCartCount(0);
+      }
+    });
+
     return () => {
       window.removeEventListener('wishlistUpdated', handleWishlistUpdate);
       window.removeEventListener('cartUpdated', handleCartUpdate);
+      subscription.unsubscribe();
     };
   }, []);
 
-  const fetchCounts = async (userId) => {
+  const fetchCounts = async (authUser) => {
     try {
-      const { count: wCount } = await supabase
-        .from('wishlist')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
+      if (!authUser) return;
+
+      // Get the bigint user_id
+      let dbUserId = null;
+      try {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', authUser.email)
+          .maybeSingle();
+        if (dbUser) dbUserId = dbUser.id;
+      } catch (dbErr) {
+        console.error("Error fetching dbUser in Navbar:", dbErr);
+      }
+
+      // Fetch wishlist using bigint id
+      let wishlistQuery = supabase.from('wishlist').select('*', { count: 'exact', head: true });
+      if (dbUserId) {
+        wishlistQuery = wishlistQuery.eq('user_id', dbUserId);
+      } else {
+        // Fallback: only query by UUID if we cannot cast it, but if user_id is bigint, we cannot query by uuid string.
+        // So we do not query by UUID string if it's bigint, we just use 0 or don't query.
+        // Wait, if dbUserId is null, we can skip or use a dummy number to avoid crash.
+        // Let's just eq('user_id', 0) since a bigint can be 0 and won't match any user.
+        wishlistQuery = wishlistQuery.eq('user_id', 0);
+      }
+      const { count: wCount } = await wishlistQuery;
       
       if (wCount !== null) setWishlistCount(wCount);
 
-      const { data: userCart } = await supabase
-        .from('carts')
-        .select('id')
-        .eq('user_id', userId)
-        .single();
-        
+      // Fetch cart using bigint id
+      let cartQuery = supabase.from('carts').select('id');
+      if (dbUserId) {
+        cartQuery = cartQuery.eq('user_id', dbUserId);
+      } else {
+        cartQuery = cartQuery.eq('user_id', 0);
+      }
+      const { data: userCart } = await cartQuery.maybeSingle();
+         
       if (userCart) {
         const { count: cCount } = await supabase
           .from('cart_items')

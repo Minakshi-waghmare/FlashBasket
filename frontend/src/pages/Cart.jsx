@@ -20,18 +20,51 @@ const Cart = () => {
       setUser(user);
 
       if (user) {
-        // Fetch cart for this user
-        let { data: userCarts, error: cartError } = await supabase
-          .from('carts')
-          .select('id')
-          .eq('user_id', user.id);
+        // Fetch or create public DB user record to get the bigint user_id
+        let dbUserId = null;
+        try {
+          const { data: dbUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', user.email)
+            .maybeSingle();
+
+          if (!dbUser) {
+            const { data: newUser } = await supabase
+              .from('users')
+              .insert([{
+                email: user.email,
+                name: user.user_metadata?.full_name || user.email.split('@')[0],
+                role: 'customer'
+              }])
+              .select('id')
+              .maybeSingle();
+            dbUserId = newUser ? newUser.id : null;
+          } else {
+            dbUserId = dbUser.id;
+          }
+        } catch (dbErr) {
+          console.error("Error fetching/syncing public DB user in Cart:", dbErr);
+        }
+
+        // Fetch cart for this user using bigint id
+        let cartQuery = supabase.from('carts').select('id');
+        if (dbUserId) {
+          cartQuery = cartQuery.eq('user_id', dbUserId);
+        } else {
+          cartQuery = cartQuery.eq('user_id', 0);
+        }
+        let { data: userCarts, error: cartError } = await cartQuery;
 
         if (cartError) throw cartError;
 
         let cartId = userCarts && userCarts.length > 0 ? userCarts[0].id : null;
         
         if (!cartId) {
-            const { data: newCart, error: newCartError } = await supabase.from('carts').insert([{ user_id: user.id }]).select();
+            const { data: newCart, error: newCartError } = await supabase
+              .from('carts')
+              .insert([{ user_id: dbUserId || 0 }])
+              .select();
             if (newCartError) throw newCartError;
             cartId = newCart[0].id;
         }
@@ -128,8 +161,28 @@ const Cart = () => {
     setCartItems([]); // Optimistic
     
     try {
-      // First find cart_id
-      const { data: userCarts } = await supabase.from('carts').select('id').eq('user_id', user.id);
+      // Fetch public DB user record to get the bigint user_id
+      let dbUserId = null;
+      try {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle();
+        if (dbUser) dbUserId = dbUser.id;
+      } catch (dbErr) {
+        console.error("Error fetching dbUser for clearCart:", dbErr);
+      }
+
+      // First find cart_id using bigint id
+      let cartQuery = supabase.from('carts').select('id');
+      if (dbUserId) {
+        cartQuery = cartQuery.eq('user_id', dbUserId);
+      } else {
+        cartQuery = cartQuery.eq('user_id', 0);
+      }
+      const { data: userCarts } = await cartQuery;
+
       if (userCarts && userCarts.length > 0) {
         const { error } = await supabase
           .from('cart_items')

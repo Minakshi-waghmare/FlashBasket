@@ -4,12 +4,15 @@ import com.flashbasket.backend.dto.OrderDTO;
 import com.flashbasket.backend.model.Cart;
 import com.flashbasket.backend.model.CartItem;
 import com.flashbasket.backend.model.Order;
+import com.flashbasket.backend.model.User;
 import com.flashbasket.backend.repository.CartItemRepository;
 import com.flashbasket.backend.repository.CartRepository;
 import com.flashbasket.backend.repository.OrderRepository;
+import com.flashbasket.backend.repository.UserRepository;
 import com.flashbasket.backend.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,9 +25,11 @@ public class OrderServiceImpl implements OrderService {
     private final CartItemRepository cartItemRepository;
     private final CartRepository cartRepository;
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
 
     // 📦 PLACE ORDER
     @Override
+    @Transactional
     public OrderDTO createOrder(String username, OrderDTO dto) {
 
         Long userId = dto.getUserId();
@@ -53,6 +58,8 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus("PLACED");
         order.setPaymentStatus("PENDING");
         order.setOrderDate(LocalDateTime.now());
+        order.setShippingAddress(dto.getShippingAddress());
+        order.setPaymentMethod(dto.getPaymentMethod());
 
         Order saved = orderRepository.save(order);
 
@@ -70,9 +77,12 @@ public class OrderServiceImpl implements OrderService {
 
     // 📥 GET ORDERS
     @Override
+    @Transactional(readOnly = true)
     public List<OrderDTO> getUserOrders(String username) {
 
-        Long userId = 1L; // (replace with JWT later)
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        Long userId = user.getId();
 
         return orderRepository.findByUserIdOrderByIdDesc(userId)
                 .stream()

@@ -73,7 +73,7 @@ const Home = () => {
   const addToWishlist = async (e, productId) => {
     e.preventDefault();
     if (!user) {
-      alert("Please login to add items to your wishlist.");
+      window.showToast?.("Please login to add items to your wishlist.", "info");
       return;
     }
     
@@ -84,41 +84,41 @@ const Home = () => {
         
       if (error) {
         if (error.code === '23505') { // Postgres unique violation
-            alert("This item is already in your wishlist!");
+          window.showToast?.("This item is already in your wishlist!", "warning");
         } else {
-            console.error("Error adding to wishlist:", error);
-            alert("Could not add to wishlist. Error: " + error.message);
+          console.error("Error adding to wishlist:", error);
+          window.showToast?.("Could not add to wishlist. Error: " + error.message, "error");
         }
       } else {
-        alert("Added to wishlist successfully!");
+        window.showToast?.("Added to wishlist successfully!", "success");
         window.dispatchEvent(new Event('wishlistUpdated'));
       }
     } catch (err) {
       console.error(err);
-      alert("Could not add to wishlist. Error: " + (err.message || "Unknown error"));
+      window.showToast?.("Could not add to wishlist. Error: " + (err.message || "Unknown error"), "error");
     }
   };
 
   const addToCart = async (e, productId) => {
     e.preventDefault();
     if (!user) {
-      alert("Please login to add items to your cart.");
+      window.showToast?.("Please login to add items to your cart.", "info");
       return;
     }
     
     try {
       await addToCartLogic(user, productId);
       
-      alert("Added to cart successfully!");
+      window.showToast?.("Added to cart successfully!", "success");
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (err) {
       if (err.message === "ADDRESS_REQUIRED") {
-        alert("Please save a delivery address before adding products to your cart.");
+        window.showToast?.("Please save a delivery address before adding products to your cart.", "warning");
         window.location.href = '/checkout';
         return;
       }
       console.error("Error adding to cart:", err);
-      alert("Could not add to cart. Error: " + (err.message || "Unknown error"));
+      window.showToast?.("Could not add to cart. Error: " + (err.message || "Unknown error"), "error");
     }
   };
 

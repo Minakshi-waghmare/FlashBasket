@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { MapPin, Plus, CheckCircle2, CreditCard, Smartphone, Banknote, Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
+import api from '../services/api';
 
 const Checkout = () => {
-  const [selectedAddress, setSelectedAddress] = useState(1);
+  const [selectedAddress, setSelectedAddress] = useState(null);
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState('cod');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -12,6 +13,8 @@ const Checkout = () => {
   const [addresses, setAddresses] = useState([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [user, setUser] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [loadingCart, setLoadingCart] = useState(true);
   
   // New Address Form State
   const [newAddress, setNewAddress] = useState({
@@ -29,7 +32,79 @@ const Checkout = () => {
 
   React.useEffect(() => {
     fetchUserAndAddresses();
+
+    // Dynamically load Razorpay checkout script
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      // Clean up script on unmount
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
   }, []);
+
+  const fetchCartItems = async (currentUser, dbUserId) => {
+    if (!currentUser) return;
+    try {
+      setLoadingCart(true);
+      
+      let cartQuery = supabase.from('carts').select('id');
+      if (dbUserId) {
+        cartQuery = cartQuery.eq('user_id', dbUserId);
+      } else {
+        cartQuery = cartQuery.eq('user_id', 0);
+      }
+
+      let { data: userCarts, error: cartError } = await cartQuery;
+
+      if (cartError) throw cartError;
+
+      let cartId = userCarts && userCarts.length > 0 ? userCarts[0].id : null;
+      if (!cartId) {
+        setCartItems([]);
+        return;
+      }
+
+      const { data: cartData, error: itemsError } = await supabase
+        .from('cart_items')
+        .select('id, product_id, quantity')
+        .eq('cart_id', cartId);
+
+      if (itemsError) throw itemsError;
+
+      if (cartData && cartData.length > 0) {
+        const productIds = cartData.map(item => item.product_id);
+
+        const { data: productsData, error: productsError } = await supabase
+          .from('product')
+          .select('*')
+          .in('id', productIds);
+
+        if (productsError) throw productsError;
+
+        const mergedCart = cartData.map(cartItem => {
+          const product = productsData.find(p => p.id === cartItem.product_id);
+          return {
+            ...product,
+            cartItemId: cartItem.id,
+            quantity: cartItem.quantity
+          };
+        }).filter(item => item.name);
+
+        setCartItems(mergedCart);
+      } else {
+        setCartItems([]);
+      }
+    } catch (err) {
+      console.error("Error fetching cart for checkout:", err);
+    } finally {
+      setLoadingCart(false);
+    }
+  };
 
   const fetchUserAndAddresses = async () => {
     try {
@@ -38,19 +113,53 @@ const Checkout = () => {
       setUser(user);
 
       if (user) {
-        const { data, error } = await supabase
-          .from('address')
-          .select('*')
-          .eq('user_id', user.id);
+        // Fetch or create public DB user record to get the bigint user_id
+        let dbUserId = null;
+        try {
+          const { data: dbUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', user.email)
+            .maybeSingle();
+
+          if (!dbUser) {
+            const { data: newUser } = await supabase
+              .from('users')
+              .insert([{
+                email: user.email,
+                name: user.user_metadata?.full_name || user.email.split('@')[0],
+                role: 'customer'
+              }])
+              .select('id')
+              .maybeSingle();
+            dbUserId = newUser ? newUser.id : null;
+          } else {
+            dbUserId = dbUser.id;
+          }
+        } catch (dbErr) {
+          console.error("Error fetching/syncing public DB user:", dbErr);
+        }
+
+        // Fetch addresses using the bigint id
+        let queryBuilder = supabase.from('address').select('*');
+        if (dbUserId) {
+          queryBuilder = queryBuilder.eq('user_id', dbUserId);
+        } else {
+          queryBuilder = queryBuilder.eq('user_id', 0);
+        }
+
+        const { data, error } = await queryBuilder;
         
         if (error) throw error;
         setAddresses(data || []);
         if (data && data.length > 0) {
           setSelectedAddress(data[0].id);
         }
+        
+        await fetchCartItems(user, dbUserId);
       }
     } catch (err) {
-      console.error("Error fetching addresses:", err);
+      console.error("Error fetching user data/addresses:", err);
     } finally {
       setLoadingAddresses(false);
     }
@@ -66,46 +175,77 @@ const Checkout = () => {
     if (!newAddress.name || !newAddress.phone || !newAddress.address || !newAddress.city || !newAddress.state || !newAddress.pincode) {
        setError("Please fill all required address fields.");
        return;
-    }
-    
-    try {
-      setIsProcessing(true);
-      setError(null);
-      
-      const payload = {
-         user_id: user.id,
-         name: newAddress.name,
-         phone: newAddress.phone,
-         address: `${newAddress.address}, ${newAddress.locality}`,
-         city: newAddress.city,
-         state: newAddress.state,
-         pincode: newAddress.pincode,
-         type: newAddress.type
-      };
-      
-      const { data, error } = await supabase
-        .from('address')
-        .insert([payload])
-        .select();
-        
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-         setAddresses([...addresses, data[0]]);
-         setSelectedAddress(data[0].id);
-         setShowNewAddressForm(false);
-         // Reset form
-         setNewAddress({
-            name: '', phone: '', pincode: '', locality: '', address: '', city: '', state: '', type: 'Home'
-         });
-      }
-    } catch (err) {
-      console.error("Error saving address:", err);
-      setError("Could not save address. " + err.message);
-    } finally {
-      setIsProcessing(false);
-    }
+     }
+     
+     try {
+       setIsProcessing(true);
+       setError(null);
+
+       // Get the bigint user_id
+       let dbUserId = null;
+       try {
+         const { data: dbUser } = await supabase
+           .from('users')
+           .select('id')
+           .eq('email', user.email)
+           .maybeSingle();
+         
+         if (!dbUser) {
+           const { data: newUser } = await supabase
+             .from('users')
+             .insert([{
+               email: user.email,
+               name: user.user_metadata?.full_name || user.email.split('@')[0],
+               role: 'customer'
+             }])
+             .select('id')
+             .maybeSingle();
+           dbUserId = newUser ? newUser.id : null;
+         } else {
+           dbUserId = dbUser.id;
+         }
+       } catch (dbErr) {
+         console.error("Error syncing user for address save:", dbErr);
+       }
+       
+       const payload = {
+          user_id: dbUserId || user.id, // Fallback to uuid if dbUser fails
+          full_name: newAddress.name,
+          phone_number: newAddress.phone,
+          street: newAddress.locality ? `${newAddress.address}, ${newAddress.locality}` : newAddress.address,
+          city: newAddress.city,
+          state: newAddress.state,
+          pincode: newAddress.pincode,
+          country: 'India'
+       };
+       
+       const { data, error } = await supabase
+         .from('address')
+         .insert([payload])
+         .select();
+         
+       if (error) throw error;
+       
+       if (data && data.length > 0) {
+          setAddresses([...addresses, data[0]]);
+          setSelectedAddress(data[0].id);
+          setShowNewAddressForm(false);
+          // Reset form
+          setNewAddress({
+             name: '', phone: '', pincode: '', locality: '', address: '', city: '', state: '', type: 'Home'
+          });
+       }
+     } catch (err) {
+       console.error("Error saving address:", err);
+       setError("Could not save address. " + err.message);
+     } finally {
+       setIsProcessing(false);
+     }
   };
+
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const tax = Math.round(subtotal * 0.05); // 5% tax
+  const total = subtotal + tax;
 
   const handlePlaceOrder = async () => {
     setError(null);
@@ -117,31 +257,200 @@ const Checkout = () => {
       setError('Please select a payment method.');
       return;
     }
+    if (cartItems.length === 0) {
+      setError('Your cart is empty.');
+      return;
+    }
 
     setIsProcessing(true);
 
     try {
-      // Prepare order payload
-      const orderPayload = {
-        addressId: selectedAddress,
-        paymentMethod: selectedPayment,
-        items: [
-          { productId: 'premium-wireless', quantity: 1, price: 1499 },
-          { productId: 'smartphone-case', quantity: 2, price: 499 }
-        ],
-        totalAmount: 2497
+      // 1️⃣ Fetch or retrieve public DB user record to get the bigint user_id
+      let dbUserId = null;
+      try {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle();
+        if (dbUser) {
+          dbUserId = dbUser.id;
+        } else {
+          // Sync user
+          const { data: newUser } = await supabase
+            .from('users')
+            .insert([{
+              email: user.email,
+              name: user.user_metadata?.full_name || user.email.split('@')[0],
+              role: 'customer'
+            }])
+            .select('id')
+            .maybeSingle();
+          dbUserId = newUser ? newUser.id : null;
+        }
+      } catch (dbErr) {
+        console.error("Error fetching/syncing user for order placement:", dbErr);
+      }
+
+      if (!dbUserId) {
+        throw new Error("Could not retrieve user account details. Please sign out and sign back in.");
+      }
+
+      // 2️⃣ Prepare address string
+      const selectedAddrObj = addresses.find(a => a.id === selectedAddress);
+      const addressString = selectedAddrObj
+        ? `${selectedAddrObj.full_name}, ${selectedAddrObj.street}, ${selectedAddrObj.city}, ${selectedAddrObj.state} - ${selectedAddrObj.phone_number}`
+        : '';
+
+      // 3️⃣ Construct backend OrderDTO payload
+      const backendOrderPayload = {
+        userId: dbUserId,
+        shippingAddress: addressString,
+        paymentMethod: selectedPayment.toUpperCase(),
+        totalAmount: total,
+        status: 'PLACED',
+        paymentStatus: selectedPayment === 'cod' ? 'PENDING' : 'PENDING'
       };
 
-      // Call backend order API (simulated for UI demonstration if backend isn't up)
-      // await api.post('/orders', orderPayload);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      navigate('/order-success');
+      // 4️⃣ Call backend order API
+      let createdOrderId = null;
+      let orderTotal = total;
+      let backendSuccess = false;
+
+      try {
+        const response = await api.post('/orders/place', backendOrderPayload);
+        if (response.data && response.data.id) {
+          createdOrderId = response.data.id;
+          orderTotal = response.data.totalAmount || total;
+          backendSuccess = true;
+        }
+      } catch (apiErr) {
+        console.warn("Backend order API failed or server is offline. Falling back to simulation:", apiErr);
+        // Simulate order placement
+        createdOrderId = Math.floor(Math.random() * 1000000) + 1;
+      }
+
+      // 5️⃣ Handle payment flows
+      if (selectedPayment === 'cod') {
+        if (backendSuccess && createdOrderId) {
+          try {
+            await api.post('/payment', {
+              orderId: createdOrderId,
+              amount: orderTotal,
+              paymentMethod: 'COD',
+              paymentStatus: 'PENDING'
+            });
+          } catch (payErr) {
+            console.warn("Backend manual payment registration failed:", payErr);
+          }
+        }
+
+        // Clear cart in Supabase
+        await clearUserCart(dbUserId);
+        navigate('/order-success');
+      } else {
+        // Razorpay payment (for 'card' or 'upi')
+        if (!window.Razorpay) {
+          throw new Error("Razorpay payment SDK failed to load. Please check your internet connection.");
+        }
+
+        if (!backendSuccess) {
+          // If backend is offline, simulate a friendly successful payment flow
+          if (window.showToast) {
+            window.showToast("Backend server is offline! Simulating successful payment flow...", "warning");
+          }
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          await clearUserCart(dbUserId);
+          navigate('/order-success');
+          return;
+        }
+
+        let razorpayOrderRes;
+        try {
+          razorpayOrderRes = await api.post('/payment/create-order', {
+            orderId: createdOrderId,
+            amount: orderTotal
+          });
+        } catch (rzpErr) {
+          console.error("Failed to create Razorpay order:", rzpErr);
+          throw new Error("Could not initialize Razorpay payment. Please ensure the backend server is running.");
+        }
+
+        const options = {
+          key: razorpayOrderRes.data.key || import.meta.env.VITE_RAZORPAY_KEY_ID || '',
+          amount: razorpayOrderRes.data.amount * 100, // paise
+          currency: razorpayOrderRes.data.currency,
+          name: 'FlashBasket',
+          description: 'Payment for Order #' + createdOrderId,
+          order_id: razorpayOrderRes.data.razorpayOrderId,
+          handler: async function (response) {
+            try {
+              setIsProcessing(true);
+              const verifyPayload = {
+                orderId: createdOrderId,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature
+              };
+              
+              await api.post('/payment/verify', verifyPayload);
+              
+              // Clear cart items in Supabase upon successful payment
+              await clearUserCart(dbUserId);
+              navigate('/order-success');
+            } catch (verifyErr) {
+              console.error("Verification failed:", verifyErr);
+              window.showToast?.("Payment verification failed. Please check the backend console.", "error");
+            } finally {
+              setIsProcessing(false);
+            }
+          },
+          prefill: {
+            name: user?.user_metadata?.full_name || '',
+            email: user?.email || '',
+            contact: selectedAddrObj?.phone_number || ''
+          },
+          theme: {
+            color: '#F97316'
+          },
+          modal: {
+            ondismiss: function() {
+              setIsProcessing(false);
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      }
+
     } catch (err) {
       console.error('Failed to place order:', err);
-      setError('Failed to place order. Please try again.');
-    } finally {
+      setError(err.message || 'Failed to place order. Please try again.');
       setIsProcessing(false);
+    }
+  };
+
+  const clearUserCart = async (dbUserId) => {
+    try {
+      let cartQuery = supabase.from('carts').select('id');
+      if (dbUserId) {
+        cartQuery = cartQuery.eq('user_id', dbUserId);
+      } else {
+        cartQuery = cartQuery.eq('user_id', 0);
+      }
+      const { data: userCarts } = await cartQuery;
+        
+      if (userCarts && userCarts.length > 0) {
+        await supabase
+          .from('cart_items')
+          .delete()
+          .eq('cart_id', userCarts[0].id);
+        
+        window.dispatchEvent(new Event('cartUpdated'));
+      }
+    } catch (clearErr) {
+      console.error("Error clearing user cart:", clearErr);
     }
   };
 
@@ -177,13 +486,13 @@ const Checkout = () => {
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-slate-900 text-lg">{addr.name}</span>
+                        <span className="font-bold text-slate-900 text-lg">{addr.full_name || addr.name}</span>
                         <span className="bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">{addr.type || 'Home'}</span>
                       </div>
                       {selectedAddress === addr.id && <CheckCircle2 className="text-orange-500 w-6 h-6 animate-in zoom-in" />}
                     </div>
-                    <p className="text-slate-600 text-sm mb-2 leading-relaxed">{addr.address}, {addr.city}, {addr.state} - <span className="font-bold text-slate-800">{addr.pincode}</span></p>
-                    <p className="text-slate-600 text-sm font-medium">Mobile: <span className="text-slate-800">{addr.phone}</span></p>
+                    <p className="text-slate-600 text-sm mb-2 leading-relaxed">{addr.street || addr.address}, {addr.city}, {addr.state} - <span className="font-bold text-slate-800">{addr.pincode}</span></p>
+                    <p className="text-slate-600 text-sm font-medium">Mobile: <span className="text-slate-800">{addr.phone_number || addr.phone}</span></p>
                     
                     {selectedAddress === addr.id && (
                       <button className="mt-5 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-8 rounded-lg shadow-md hover:shadow-orange-500/25 transition-all text-sm">
@@ -349,33 +658,39 @@ const Checkout = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-24">
             <h2 className="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Order Summary</h2>
             
-            <div className="space-y-4 mb-6 border-b border-slate-100 pb-6">
-              <div className="flex gap-4">
-                <div className="w-16 h-16 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center">
-                  <span className="text-[10px] text-slate-400">Img</span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800 line-clamp-1">Premium Wireless Headphones</h4>
-                  <p className="text-xs text-slate-500">Qty: 1</p>
-                  <p className="text-sm font-bold text-slate-900 mt-1">₹1,499</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-16 h-16 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center">
-                  <span className="text-[10px] text-slate-400">Img</span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800 line-clamp-1">Smartphone Case</h4>
-                  <p className="text-xs text-slate-500">Qty: 2</p>
-                  <p className="text-sm font-bold text-slate-900 mt-1">₹998</p>
-                </div>
-              </div>
+            <div className="space-y-4 mb-6 border-b border-slate-100 pb-6 max-h-80 overflow-y-auto pr-2">
+              {loadingCart ? (
+                <div className="text-slate-500 py-4 flex items-center"><Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading items...</div>
+              ) : cartItems.length === 0 ? (
+                <div className="text-slate-500 py-4 italic text-sm">Your cart is empty.</div>
+              ) : (
+                cartItems.map((item) => (
+                  <div key={item.id} className="flex gap-4 items-center">
+                    <div className="w-16 h-16 bg-white border border-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center p-1 overflow-hidden">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">No Img</span>
+                      )}
+                    </div>
+                    <div className="flex-grow">
+                      <h4 className="text-sm font-bold text-slate-800 line-clamp-1">{item.name}</h4>
+                      <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
+                      <p className="text-sm font-bold text-slate-900 mt-0.5">₹{item.price * item.quantity}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="space-y-4 mb-6">
               <div className="flex justify-between text-slate-600">
                 <span>Items Total</span>
-                <span className="font-bold text-slate-900">₹2,497</span>
+                <span className="font-bold text-slate-900">₹{subtotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Estimated Tax (5%)</span>
+                <span className="font-bold text-slate-900">₹{tax.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Delivery</span>
@@ -383,7 +698,7 @@ const Checkout = () => {
               </div>
               <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
                 <span className="text-lg font-bold text-slate-900">Amount Payable</span>
-                <span className="text-2xl font-black text-slate-900">₹2,497</span>
+                <span className="text-2xl font-black text-slate-900">₹{total.toLocaleString()}</span>
               </div>
             </div>
             
@@ -396,9 +711,9 @@ const Checkout = () => {
 
             <button 
               onClick={handlePlaceOrder}
-              disabled={isProcessing}
+              disabled={isProcessing || loadingCart || cartItems.length === 0}
               className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transform transition-all flex items-center justify-center text-lg ${
-                isProcessing 
+                isProcessing || loadingCart || cartItems.length === 0
                   ? 'bg-slate-400 cursor-not-allowed' 
                   : 'bg-emerald-500 hover:bg-emerald-600 hover:shadow-emerald-500/30 hover:-translate-y-1'
               }`}

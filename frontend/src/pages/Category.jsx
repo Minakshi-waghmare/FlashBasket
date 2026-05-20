@@ -33,26 +33,54 @@ const Category = () => {
       if (data) {
         const target = displayTitle.toLowerCase();
         
-        const filtered = data.filter(p => {
-          if (!p.category) return false;
-          const pCat = p.category.toLowerCase();
-          
-          // Exact or substring match
-          if (pCat.includes(target) || target.includes(pCat)) return true;
-          
-          // Fallback keyword matching for absolute safety
-          if (target.includes('electronic') && pCat.includes('electronic')) return true;
-          if (target.includes('fashion') && pCat.includes('fashion')) return true;
-          if (target.includes('home') && pCat.includes('home')) return true;
-          if (target.includes('kitchen') && pCat.includes('kitchen')) return true;
-          if (target.includes('watch') && pCat.includes('watch')) return true;
-          if (target.includes('accessor') && pCat.includes('accessor')) return true;
-          if (target.includes('book') && pCat.includes('book')) return true;
-          if (target.includes('sport') && pCat.includes('sport')) return true;
-          
-          return false;
-        });
-        
+        const isProductInCategory = (product, category) => {
+          if (!product) return false;
+          const catName = (product.category || '').toLowerCase();
+          const prodName = (product.name || '').toLowerCase();
+          const prodDesc = (product.description || '').toLowerCase();
+          const target = category.toLowerCase();
+
+          // Electronics category mapping
+          if (target.includes('electronic') || target.includes('tech')) {
+            const keywords = ['electronic', 'tech', 'phone', 'smartphone', 'laptop', 'headphone', 'earbud', 'computer', 'camera', 'tv', 'gadget', 'charger', 'soundbar', 'speaker'];
+            return keywords.some(k => catName.includes(k) || prodName.includes(k) || prodDesc.includes(k));
+          }
+
+          // Fashion / Clothes category mapping
+          if (target.includes('fashion') || target.includes('wear') || target.includes('cloth')) {
+            const keywords = ['fashion', 'clothing', 'clothes', 'wear', 'apparel', 'shirt', 't-shirt', 'jeans', 'pants', 'dress', 'jacket', 'shoes', 'sneaker', 'sandal', 'sock', 'suit', 'hoodie'];
+            return keywords.some(k => catName.includes(k) || prodName.includes(k) || prodDesc.includes(k));
+          }
+
+          // Home & Kitchen category mapping
+          if (target.includes('home') || target.includes('kitchen')) {
+            const keywords = ['home', 'kitchen', 'appliance', 'cookware', 'furniture', 'decor', 'bedding', 'dining', 'mug', 'cup', 'plate', 'knife', 'toaster', 'blender', 'kettle', 'bottle', 'organizer', 'storage'];
+            return keywords.some(k => catName.includes(k) || prodName.includes(k) || prodDesc.includes(k));
+          }
+
+          // Accessories & Watches category mapping
+          if (target.includes('accessor') || target.includes('watch') || target.includes('bag')) {
+            const keywords = ['accessory', 'accessories', 'watch', 'watches', 'smartwatch', 'jewelry', 'ring', 'necklace', 'handbag', 'bag', 'backpack', 'belt', 'wallet', 'glasses', 'sunglasses'];
+            return keywords.some(k => catName.includes(k) || prodName.includes(k) || prodDesc.includes(k));
+          }
+
+          // Books category mapping
+          if (target.includes('book')) {
+            const keywords = ['book', 'books', 'novel', 'literature', 'read', 'author'];
+            return keywords.some(k => catName.includes(k) || prodName.includes(k) || prodDesc.includes(k));
+          }
+
+          // Sports & Fitness category mapping
+          if (target.includes('sport') || target.includes('gym') || target.includes('fitness')) {
+            const keywords = ['sport', 'sports', 'fitness', 'gym', 'workout', 'dumbbell', 'running', 'yoga', 'mat', 'protein', 'supplement'];
+            return keywords.some(k => catName.includes(k) || prodName.includes(k) || prodDesc.includes(k));
+          }
+
+          // Fallback exact or substring match on the category name
+          return catName.includes(target) || target.includes(catName);
+        };
+
+        const filtered = data.filter(p => isProductInCategory(p, displayTitle));
         setProducts(filtered);
       }
     } catch (error) {
@@ -65,52 +93,84 @@ const Category = () => {
   const addToWishlist = async (e, productId) => {
     e.preventDefault();
     if (!user) {
-      alert("Please login to add items to your wishlist.");
+      window.showToast?.("Please login to add items to your wishlist.", "info");
       return;
     }
     
     try {
+      // Get the bigint user_id
+      let dbUserId = null;
+      try {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle();
+        if (dbUser) {
+          dbUserId = dbUser.id;
+        } else {
+          // Sync user
+          const { data: newUser } = await supabase
+            .from('users')
+            .insert([{
+              email: user.email,
+              name: user.user_metadata?.full_name || user.email.split('@')[0],
+              role: 'customer'
+            }])
+            .select('id')
+            .maybeSingle();
+          dbUserId = newUser ? newUser.id : null;
+        }
+      } catch (dbErr) {
+        console.error("Error fetching/syncing dbUserId in Category:", dbErr);
+      }
+
+      if (!dbUserId) {
+        window.showToast?.("Could not sync your user account. Please try signing out and signing in again.", "error");
+        return;
+      }
+
       const { error } = await supabase
         .from('wishlist')
-        .insert([{ user_id: user.id, product_id: productId }]);
+        .insert([{ user_id: dbUserId, product_id: productId }]);
         
       if (error) {
         if (error.code === '23505') {
-            alert("This item is already in your wishlist!");
+          window.showToast?.("This item is already in your wishlist!", "warning");
         } else {
-            console.error("Error adding to wishlist:", error);
-            alert("Could not add to wishlist. Error: " + error.message);
+          console.error("Error adding to wishlist:", error);
+          window.showToast?.("Could not add to wishlist. Error: " + error.message, "error");
         }
       } else {
-        alert("Added to wishlist successfully!");
+        window.showToast?.("Added to wishlist successfully!", "success");
         window.dispatchEvent(new Event('wishlistUpdated'));
       }
     } catch (err) {
       console.error(err);
-      alert("Could not add to wishlist. Error: " + (err.message || "Unknown error"));
+      window.showToast?.("Could not add to wishlist. Error: " + (err.message || "Unknown error"), "error");
     }
   };
 
   const addToCart = async (e, productId) => {
     e.preventDefault();
     if (!user) {
-      alert("Please login to add items to your cart.");
+      window.showToast?.("Please login to add items to your cart.", "info");
       return;
     }
     
     try {
       await addToCartLogic(user, productId);
       
-      alert("Added to cart successfully!");
+      window.showToast?.("Added to cart successfully!", "success");
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (err) {
       if (err.message === "ADDRESS_REQUIRED") {
-        alert("Please save a delivery address before adding products to your cart.");
+        window.showToast?.("Please save a delivery address before adding products to your cart.", "warning");
         window.location.href = '/checkout';
         return;
       }
       console.error("Error adding to cart:", err);
-      alert("Could not add to cart. Error: " + (err.message || "Unknown error"));
+      window.showToast?.("Could not add to cart. Error: " + (err.message || "Unknown error"), "error");
     }
   };
 

@@ -8,6 +8,7 @@ const Wishlist = () => {
   const [wishlistProducts, setWishlistProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [dbUserId, setDbUserId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,11 +23,39 @@ const Wishlist = () => {
       setUser(user);
 
       if (user) {
-        // Fetch wishlist entries for this user
+        // Fetch or create public DB user record to get the bigint user_id
+        let currentDbUserId = null;
+        try {
+          const { data: dbUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', user.email)
+            .maybeSingle();
+
+          if (!dbUser) {
+            const { data: newUser } = await supabase
+              .from('users')
+              .insert([{
+                email: user.email,
+                name: user.user_metadata?.full_name || user.email.split('@')[0],
+                role: 'customer'
+              }])
+              .select('id')
+              .maybeSingle();
+            currentDbUserId = newUser ? newUser.id : null;
+          } else {
+            currentDbUserId = dbUser.id;
+          }
+          setDbUserId(currentDbUserId);
+        } catch (dbErr) {
+          console.error("Error fetching/syncing public DB user in Wishlist:", dbErr);
+        }
+
+        // Fetch wishlist entries for this user using bigint id
         const { data: wishlistData, error: wishlistError } = await supabase
           .from('wishlist')
           .select('product_id')
-          .eq('user_id', user.id);
+          .eq('user_id', currentDbUserId || 0);
 
         if (wishlistError) throw wishlistError;
 
@@ -62,7 +91,7 @@ const Wishlist = () => {
       const { error } = await supabase
         .from('wishlist')
         .delete()
-        .eq('user_id', user.id)
+        .eq('user_id', dbUserId || 0)
         .eq('product_id', productId);
         
       if (error) {
@@ -86,7 +115,7 @@ const Wishlist = () => {
       const { error } = await supabase
         .from('wishlist')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', dbUserId || 0);
         
       if (error) {
         console.error("Error clearing wishlist:", error);
@@ -106,16 +135,16 @@ const Wishlist = () => {
     try {
       await addToCartLogic(user, productId);
       
-      alert("Added to cart successfully!");
+      window.showToast?.("Added to cart successfully!", "success");
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (err) {
       if (err.message === "ADDRESS_REQUIRED") {
-        alert("Please save a delivery address before adding products to your cart.");
+        window.showToast?.("Please save a delivery address before adding products to your cart.", "warning");
         window.location.href = '/checkout';
         return;
       }
       console.error("Error adding to cart:", err);
-      alert("Could not add to cart. Please try again.");
+      window.showToast?.("Could not add to cart. Please try again.", "error");
     }
   };
 
