@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Heart, Share2, ShieldCheck, Truck, RotateCcw, AlertCircle, CheckCircle2, XCircle, Star, MessageSquare, Trash2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
+import { supabase } from '../services/supabase';
+import { addToCartLogic } from '../services/cartService';
 
 const ProductDetail = () => {
   const { id } = useParams();
   
-  // Mock data for demonstration. In a real app, this comes from backend.
-  const [stockQuantity, setStockQuantity] = useState(5); // Change to 0 to see Out of Stock, > 10 for In Stock
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  const [stockQuantity, setStockQuantity] = useState(0);
   const [quantity, setQuantity] = useState(1);
   
-  // Review states
+  // Review states (keeping local for now, but can be moved to Supabase later)
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -17,6 +22,33 @@ const ProductDetail = () => {
     { id: 1, user: 'Alex M.', rating: 5, date: '2 days ago', comment: 'Absolutely love these headphones! The ANC is incredible and the battery lasts forever.' },
     { id: 2, user: 'Sarah K.', rating: 4, date: '1 week ago', comment: 'Great sound, but the ear cups are slightly tight for long sessions. Otherwise perfect.' }
   ]);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [id]);
+
+  const fetchProduct = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('product') // Changed from 'products' to 'product'
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setProduct(data);
+        setStockQuantity(data.stock_quantity !== undefined ? data.stock_quantity : 10); // Default to 10 if not in DB
+      }
+    } catch (err) {
+      console.error("Error fetching product:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmitReview = (e) => {
     e.preventDefault();
@@ -51,33 +83,103 @@ const ProductDetail = () => {
     }
   };
 
+  const addToCart = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("Please login to add items to your cart.");
+      return;
+    }
+    
+    try {
+      await addToCartLogic(user, product.id, quantity);
+      
+      alert("Added to cart successfully!");
+      window.dispatchEvent(new Event('cartUpdated'));
+    } catch (err) {
+      if (err.message === "ADDRESS_REQUIRED") {
+        alert("Please save a delivery address before adding products to your cart.");
+        window.location.href = '/checkout';
+        return;
+      }
+      console.error("Error adding to cart:", err);
+      alert("Could not add to cart. Error: " + (err.message || "Unknown error"));
+    }
+  };
+
+  const addToWishlist = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("Please login to add items to your wishlist.");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('wishlist')
+        .insert([{ user_id: user.id, product_id: product.id }]);
+        
+      if (error) {
+        if (error.code === '23505') {
+            alert("This item is already in your wishlist!");
+        } else {
+            console.error("Error adding to wishlist:", error);
+            alert("Could not add to wishlist. Error: " + error.message);
+        }
+      } else {
+        alert("Added to wishlist successfully!");
+        window.dispatchEvent(new Event('wishlistUpdated'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Could not add to wishlist. Error: " + (err.message || "Unknown error"));
+    }
+  };
+
+  if (loading) {
+    return <div className="max-w-7xl mx-auto px-4 py-20 text-center text-xl font-bold text-slate-500">Loading Product Details...</div>;
+  }
+
+  if (error || !product) {
+    return <div className="max-w-7xl mx-auto px-4 py-20 text-center text-xl font-bold text-red-500">Product not found.</div>;
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="flex flex-col md:flex-row">
           {/* Image Section */}
           <div className="md:w-1/2 p-8 bg-slate-50 flex items-center justify-center min-h-[500px]">
-            <div className="w-full h-full max-w-md max-h-md bg-slate-200 rounded-2xl shadow-inner flex items-center justify-center">
-                <span className="text-slate-400 font-medium text-lg">Product Image {id}</span>
+            <div className="w-full h-full max-w-md max-h-md bg-white rounded-2xl shadow-inner flex items-center justify-center overflow-hidden">
+                {product.image_url ? (
+                  <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-4" />
+                ) : (
+                  <span className="text-slate-400 font-medium text-lg">No Image</span>
+                )}
             </div>
           </div>
           
           {/* Details Section */}
           <div className="md:w-1/2 p-10 lg:p-14 flex flex-col justify-center">
-            <p className="text-orange-500 font-bold tracking-widest text-sm uppercase mb-2">Electronics</p>
-            <h1 className="text-4xl font-extrabold text-slate-900 mb-4 leading-tight">Premium Wireless ANC Headphones</h1>
+            <p className="text-orange-500 font-bold tracking-widest text-sm uppercase mb-2">{product.category || 'General'}</p>
+            <h1 className="text-4xl font-extrabold text-slate-900 mb-4 leading-tight">{product.name}</h1>
             
             <div className="flex items-center mb-6">
               <div className="flex text-amber-400 text-lg mr-3">
-                ★★★★☆
+                {'★'.repeat(Math.round(product.rating || 4))}{'☆'.repeat(5 - Math.round(product.rating || 4))}
               </div>
-              <span className="text-slate-500 font-medium underline cursor-pointer">124 Reviews</span>
+              <span className="text-slate-500 font-medium underline cursor-pointer">{product.reviews_count || reviews.length} Reviews</span>
             </div>
 
             <div className="mb-6 flex items-end">
-              <span className="text-4xl font-black text-slate-900">₹1,499</span>
-              <span className="text-xl text-slate-400 line-through ml-4 mb-1">₹1,999</span>
-              <span className="ml-4 mb-2 bg-red-100 text-red-600 text-xs font-bold px-3 py-1 rounded-full">Save 25%</span>
+              <span className="text-4xl font-black text-slate-900">₹{product.price}</span>
+              {product.original_price && (
+                <>
+                  <span className="text-xl text-slate-400 line-through ml-4 mb-1">₹{product.original_price}</span>
+                  {product.discount && (
+                    <span className="ml-4 mb-2 bg-red-100 text-red-600 text-xs font-bold px-3 py-1 rounded-full">Save {product.discount}%</span>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Stock Validation UI */}
@@ -87,7 +189,7 @@ const ProductDetail = () => {
                   <XCircle className="w-5 h-5 mr-2" />
                   <span className="font-bold text-sm">Out of Stock</span>
                 </div>
-              ) : stockQuantity <= 10 ? (
+              ) : stockQuantity <= 5 ? (
                 <div className="flex items-center text-orange-600 bg-orange-50 w-fit px-3 py-1.5 rounded-lg border border-orange-100 animate-pulse">
                   <AlertCircle className="w-5 h-5 mr-2" />
                   <span className="font-bold text-sm">Limited Stock - Only {stockQuantity} left!</span>
@@ -101,8 +203,7 @@ const ProductDetail = () => {
             </div>
 
             <p className="text-slate-600 mb-8 leading-relaxed text-lg">
-              Experience unparalleled sound quality with our industry-leading active noise cancellation. 
-              Designed for comfort and built for durability, these headphones are your perfect companion for travel, work, or relaxation.
+              {product.description || 'Experience unparalleled quality with this premium product. Designed for comfort and built for durability, it is your perfect companion.'}
             </p>
 
             <div className="flex items-center space-x-4 mb-10">
@@ -120,6 +221,7 @@ const ProductDetail = () => {
                 >+</button>
               </div>
               <button 
+                onClick={addToCart}
                 disabled={stockQuantity === 0}
                 className={`flex-1 font-bold py-4 px-8 rounded-xl shadow-lg transform transition-all flex items-center justify-center text-lg ${
                   stockQuantity === 0 
@@ -129,7 +231,7 @@ const ProductDetail = () => {
               >
                 <ShoppingCart className="mr-3 h-6 w-6" /> {stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
               </button>
-              <button className="p-4 border-2 border-slate-200 rounded-xl text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-all">
+              <button onClick={addToWishlist} className="p-4 border-2 border-slate-200 rounded-xl text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-all">
                 <Heart className="h-6 w-6" />
               </button>
             </div>
@@ -145,7 +247,7 @@ const ProductDetail = () => {
                 </div>
                 <div className="flex items-center text-slate-600">
                     <ShieldCheck className="h-5 w-5 text-orange-500 mr-3" />
-                    <span className="text-sm font-medium">2 Year Warranty</span>
+                    <span className="text-sm font-medium">1 Year Warranty</span>
                 </div>
             </div>
           </div>

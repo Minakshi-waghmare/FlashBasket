@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { MapPin, Phone, Mail, Clock, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import { supabase } from '../services/supabase';
 
 const Contact = () => {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
   const [activeFaq, setActiveFaq] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState(null);
 
   const faqs = [
     { question: 'What is your return policy?', answer: 'We offer a 30-day no-questions-asked return policy for all unused products in their original packaging.' },
@@ -18,17 +20,36 @@ const Contact = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.message) return;
     
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    setError(null);
+    
+    try {
+      // Insert message into the 'messages' table in Supabase
+      const { error: submitError } = await supabase
+        .from('messages')
+        .insert([
+          { 
+            name: formData.name, 
+            email: formData.email, 
+            subject: formData.subject, 
+            message: formData.message 
+          }
+        ]);
+        
+      if (submitError) throw submitError;
+      
       setIsSubmitted(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
-    }, 1500);
+    } catch (err) {
+      console.error("Error submitting message:", err);
+      setError("Something went wrong. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -92,6 +113,11 @@ const Contact = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {error && (
+                    <div className="bg-red-50 text-red-500 p-3 rounded-lg text-sm text-center">
+                      {error}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-2">Your Name *</label>

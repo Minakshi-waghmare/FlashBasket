@@ -1,70 +1,203 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ShoppingCart, Filter, ChevronDown } from 'lucide-react';
+import { ShoppingCart, Filter, ChevronDown, Heart } from 'lucide-react';
+import { supabase } from '../services/supabase';
+import { addToCartLogic } from '../services/cartService';
 
 const Category = () => {
   const { categoryName } = useParams();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
-  // Format category name for display
-  const displayTitle = categoryName.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  // Format category name for display (e.g. 'home-kitchen' -> 'Home Kitchen')
+  let displayTitle = categoryName.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  if (categoryName === 'home-kitchen') displayTitle = 'Home & Kitchen';
+
+  useEffect(() => {
+    fetchCategoryProducts();
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [categoryName]);
+
+  const fetchCategoryProducts = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all products first to do flexible filtering
+      const { data, error } = await supabase
+        .from('product') // Using user's 'product' table
+        .select('*');
+      
+      if (error) throw error;
+      
+      if (data) {
+        const target = displayTitle.toLowerCase();
+        
+        const filtered = data.filter(p => {
+          if (!p.category) return false;
+          const pCat = p.category.toLowerCase();
+          
+          // Exact or substring match
+          if (pCat.includes(target) || target.includes(pCat)) return true;
+          
+          // Fallback keyword matching for absolute safety
+          if (target.includes('electronic') && pCat.includes('electronic')) return true;
+          if (target.includes('fashion') && pCat.includes('fashion')) return true;
+          if (target.includes('home') && pCat.includes('home')) return true;
+          if (target.includes('kitchen') && pCat.includes('kitchen')) return true;
+          if (target.includes('watch') && pCat.includes('watch')) return true;
+          if (target.includes('accessor') && pCat.includes('accessor')) return true;
+          if (target.includes('book') && pCat.includes('book')) return true;
+          if (target.includes('sport') && pCat.includes('sport')) return true;
+          
+          return false;
+        });
+        
+        setProducts(filtered);
+      }
+    } catch (error) {
+      console.error("Error fetching category products:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToWishlist = async (e, productId) => {
+    e.preventDefault();
+    if (!user) {
+      alert("Please login to add items to your wishlist.");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('wishlist')
+        .insert([{ user_id: user.id, product_id: productId }]);
+        
+      if (error) {
+        if (error.code === '23505') {
+            alert("This item is already in your wishlist!");
+        } else {
+            console.error("Error adding to wishlist:", error);
+            alert("Could not add to wishlist. Error: " + error.message);
+        }
+      } else {
+        alert("Added to wishlist successfully!");
+        window.dispatchEvent(new Event('wishlistUpdated'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Could not add to wishlist. Error: " + (err.message || "Unknown error"));
+    }
+  };
+
+  const addToCart = async (e, productId) => {
+    e.preventDefault();
+    if (!user) {
+      alert("Please login to add items to your cart.");
+      return;
+    }
+    
+    try {
+      await addToCartLogic(user, productId);
+      
+      alert("Added to cart successfully!");
+      window.dispatchEvent(new Event('cartUpdated'));
+    } catch (err) {
+      if (err.message === "ADDRESS_REQUIRED") {
+        alert("Please save a delivery address before adding products to your cart.");
+        window.location.href = '/checkout';
+        return;
+      }
+      console.error("Error adding to cart:", err);
+      alert("Could not add to cart. Error: " + (err.message || "Unknown error"));
+    }
+  };
 
   return (
     <div className="bg-slate-50 min-h-screen py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 mb-8 flex flex-col md:flex-row justify-between items-center">
-          <div>
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="w-full md:w-auto">
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">{displayTitle}</h1>
-            <p className="text-slate-500">Explore the best products in {displayTitle}</p>
+            <p className="text-slate-500">Explore all products in {displayTitle}</p>
           </div>
-          <div className="mt-6 md:mt-0 flex gap-4">
-            <button className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors">
-              <Filter className="w-4 h-4" /> Filters
-            </button>
-            <button className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors">
-              Sort by: Featured <ChevronDown className="w-4 h-4" />
-            </button>
+          
+          <div className="w-full md:w-auto flex flex-col sm:flex-row gap-4 flex-grow md:justify-end">
+            <div className="flex gap-4">
+              <button className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl font-medium transition-colors">
+                <Filter className="w-4 h-4" /> Filters
+              </button>
+              <button className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl font-medium transition-colors">
+                Featured <ChevronDown className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Product Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
-            <Link to={`/product/${item}`} key={item} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-slate-100 flex flex-col h-full transform hover:-translate-y-1 block">
-              <div className="h-64 bg-slate-50 relative overflow-hidden flex items-center justify-center p-6">
-                 <div className="w-full h-full bg-slate-200 rounded-xl shadow-inner flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
-                     <span className="text-slate-400 font-medium">Product Image</span>
-                 </div>
-                 {item % 3 === 0 && (
-                   <div className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
-                       Sale
+        {loading ? (
+          <div className="text-center py-20 text-slate-500 font-bold text-xl">Loading Products...</div>
+        ) : products.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {products.map((item) => (
+              <Link to={`/product/${item.id}`} key={item.id} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-slate-100 flex flex-col h-[420px] transform hover:-translate-y-1 block">
+                <div className="h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
+                   <div className="w-full h-full bg-white rounded-xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105 overflow-hidden">
+                       {item.image_url ? (
+                         <img src={item.image_url} alt={item.name} className="object-contain h-full w-full" />
+                       ) : (
+                         <span className="text-slate-400 font-medium text-sm">No Image</span>
+                       )}
                    </div>
-                 )}
-              </div>
-              <div className="p-6 flex-grow flex flex-col justify-between">
-                <div>
-                    <p className="text-xs text-orange-500 font-bold mb-1 uppercase tracking-wider">{displayTitle}</p>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-orange-500 transition-colors line-clamp-2">Awesome {displayTitle} Product Model {item}</h3>
-                    <div className="flex items-center mb-4">
-                    <div className="flex text-amber-400 text-sm">
-                        {'★'.repeat(4)}{'☆'.repeat(1)}
-                    </div>
-                    <span className="text-xs text-slate-500 font-medium ml-2">(42 reviews)</span>
-                    </div>
+                   {item.discount && (
+                     <div className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                         -{item.discount}%
+                     </div>
+                   )}
+                   <button 
+                     className="absolute top-4 right-4 p-2 bg-white/90 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full shadow-sm transition-colors z-20"
+                     onClick={(e) => addToWishlist(e, item.id)}
+                   >
+                     <Heart className="w-5 h-5" />
+                   </button>
                 </div>
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-black text-slate-900">₹{item}99</span>
+                <div className="p-6 flex-grow flex flex-col justify-between">
+                  <div>
+                      <p className="text-xs text-orange-500 font-bold mb-1 uppercase tracking-wider">{item.category || displayTitle}</p>
+                      <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-orange-500 transition-colors line-clamp-2">{item.name}</h3>
+                      <div className="flex items-center mb-4">
+                      <div className="flex text-amber-400 text-sm">
+                          {'★'.repeat(Math.round(item.rating || 4))}{'☆'.repeat(5 - Math.round(item.rating || 4))}
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium ml-2">({item.reviews_count || 0} reviews)</span>
+                      </div>
                   </div>
-                  <button className="bg-slate-900 hover:bg-orange-500 text-white rounded-xl p-3 transition-all duration-200 shadow-md hover:shadow-orange-500/25 active:scale-95" onClick={(e) => { e.preventDefault(); /* Add to cart logic */ }}>
-                    <ShoppingCart className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
+                    <div className="flex flex-col">
+                      <span className="text-2xl font-black text-slate-900">₹{item.price}</span>
+                      {item.original_price && (
+                        <span className="text-sm text-slate-400 line-through font-medium">₹{item.original_price}</span>
+                      )}
+                    </div>
+                    <button className="bg-slate-900 hover:bg-orange-500 text-white rounded-xl p-3 transition-all duration-200 shadow-md hover:shadow-orange-500/25 active:scale-95 z-20 relative" onClick={(e) => addToCart(e, item.id)}>
+                      <ShoppingCart className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 text-slate-500 bg-white rounded-3xl border border-slate-100">
+            <h3 className="text-2xl font-bold mb-3 text-slate-800">No products found</h3>
+            <p className="text-lg">
+              We couldn't find any products in the {displayTitle} category.
+            </p>
+          </div>
+        )}
         
       </div>
     </div>

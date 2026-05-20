@@ -10,7 +10,7 @@
 
 @layer utilities {
   .animate-marquee-scroll {
-    animation: marquee-scroll 30s linear infinite;
+    animation: marquee-scroll 500s linear infinite;
   }
   
   @keyframes marquee-scroll {

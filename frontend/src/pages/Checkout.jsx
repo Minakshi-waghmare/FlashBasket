@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Plus, CheckCircle2, CreditCard, Smartphone, Banknote, Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import { supabase } from '../services/supabase';
 
 const Checkout = () => {
   const [selectedAddress, setSelectedAddress] = useState(1);
@@ -9,7 +9,103 @@ const Checkout = () => {
   const [selectedPayment, setSelectedPayment] = useState('cod');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
+  const [addresses, setAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [user, setUser] = useState(null);
+  
+  // New Address Form State
+  const [newAddress, setNewAddress] = useState({
+    name: '',
+    phone: '',
+    pincode: '',
+    locality: '',
+    address: '',
+    city: '',
+    state: '',
+    type: 'Home'
+  });
+
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    fetchUserAndAddresses();
+  }, []);
+
+  const fetchUserAndAddresses = async () => {
+    try {
+      setLoadingAddresses(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+
+      if (user) {
+        const { data, error } = await supabase
+          .from('address')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+        setAddresses(data || []);
+        if (data && data.length > 0) {
+          setSelectedAddress(data[0].id);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching addresses:", err);
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
+
+  const handleSaveAddress = async () => {
+    if (!user) {
+      setError("Please login to save address.");
+      return;
+    }
+    
+    // Basic validation
+    if (!newAddress.name || !newAddress.phone || !newAddress.address || !newAddress.city || !newAddress.state || !newAddress.pincode) {
+       setError("Please fill all required address fields.");
+       return;
+    }
+    
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      const payload = {
+         user_id: user.id,
+         name: newAddress.name,
+         phone: newAddress.phone,
+         address: `${newAddress.address}, ${newAddress.locality}`,
+         city: newAddress.city,
+         state: newAddress.state,
+         pincode: newAddress.pincode,
+         type: newAddress.type
+      };
+      
+      const { data, error } = await supabase
+        .from('address')
+        .insert([payload])
+        .select();
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+         setAddresses([...addresses, data[0]]);
+         setSelectedAddress(data[0].id);
+         setShowNewAddressForm(false);
+         // Reset form
+         setNewAddress({
+            name: '', phone: '', pincode: '', locality: '', address: '', city: '', state: '', type: 'Home'
+         });
+      }
+    } catch (err) {
+      console.error("Error saving address:", err);
+      setError("Could not save address. " + err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handlePlaceOrder = async () => {
     setError(null);
@@ -49,28 +145,7 @@ const Checkout = () => {
     }
   };
 
-  const addresses = [
-    {
-      id: 1,
-      name: 'John Doe',
-      type: 'Home',
-      phone: '+91 9876543210',
-      address: '123, Tech Park, Main Street',
-      city: 'Bangalore',
-      state: 'Karnataka',
-      pincode: '560001'
-    },
-    {
-      id: 2,
-      name: 'John Doe',
-      type: 'Work',
-      phone: '+91 9876543210',
-      address: '456, Business Center, Sector 5',
-      city: 'Bangalore',
-      state: 'Karnataka',
-      pincode: '560034'
-    }
-  ];
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-slate-50 min-h-screen">
@@ -85,33 +160,39 @@ const Checkout = () => {
             </h2>
             
             <div className="space-y-4">
-              {addresses.map((addr) => (
-                <div 
-                  key={addr.id}
-                  onClick={() => setSelectedAddress(addr.id)}
-                  className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 ${
-                    selectedAddress === addr.id 
-                      ? 'border-orange-500 bg-orange-50/50 shadow-sm' 
-                      : 'border-slate-100 hover:border-orange-300 bg-white'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900 text-lg">{addr.name}</span>
-                      <span className="bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">{addr.type}</span>
+              {loadingAddresses ? (
+                <div className="text-slate-500 py-4 flex items-center"><Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading addresses...</div>
+              ) : addresses.length === 0 ? (
+                <div className="text-slate-500 py-4 italic">No addresses saved yet. Please add a new address.</div>
+              ) : (
+                addresses.map((addr) => (
+                  <div 
+                    key={addr.id}
+                    onClick={() => setSelectedAddress(addr.id)}
+                    className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 ${
+                      selectedAddress === addr.id 
+                        ? 'border-orange-500 bg-orange-50/50 shadow-sm' 
+                        : 'border-slate-100 hover:border-orange-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-900 text-lg">{addr.name}</span>
+                        <span className="bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">{addr.type || 'Home'}</span>
+                      </div>
+                      {selectedAddress === addr.id && <CheckCircle2 className="text-orange-500 w-6 h-6 animate-in zoom-in" />}
                     </div>
-                    {selectedAddress === addr.id && <CheckCircle2 className="text-orange-500 w-6 h-6 animate-in zoom-in" />}
+                    <p className="text-slate-600 text-sm mb-2 leading-relaxed">{addr.address}, {addr.city}, {addr.state} - <span className="font-bold text-slate-800">{addr.pincode}</span></p>
+                    <p className="text-slate-600 text-sm font-medium">Mobile: <span className="text-slate-800">{addr.phone}</span></p>
+                    
+                    {selectedAddress === addr.id && (
+                      <button className="mt-5 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-8 rounded-lg shadow-md hover:shadow-orange-500/25 transition-all text-sm">
+                        Deliver Here
+                      </button>
+                    )}
                   </div>
-                  <p className="text-slate-600 text-sm mb-2 leading-relaxed">{addr.address}, {addr.city}, {addr.state} - <span className="font-bold text-slate-800">{addr.pincode}</span></p>
-                  <p className="text-slate-600 text-sm font-medium">Mobile: <span className="text-slate-800">{addr.phone}</span></p>
-                  
-                  {selectedAddress === addr.id && (
-                    <button className="mt-5 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-8 rounded-lg shadow-md hover:shadow-orange-500/25 transition-all text-sm">
-                      Deliver Here
-                    </button>
-                  )}
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* Add New Address Form */}
@@ -127,17 +208,20 @@ const Checkout = () => {
                 <div className="mt-2 border border-slate-200 rounded-2xl p-6 md:p-8 bg-slate-50/50 shadow-inner animate-in fade-in slide-in-from-top-4 duration-300">
                   <h3 className="font-bold text-slate-800 mb-6 text-lg border-b border-slate-200 pb-3">Add New Address</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <input type="text" placeholder="Full Name" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <input type="text" placeholder="Mobile Number" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <input type="text" placeholder="Pincode" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <input type="text" placeholder="Locality / Town" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <textarea placeholder="Address (Area and Street)" rows="3" className="w-full md:col-span-2 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white resize-none"></textarea>
-                    <input type="text" placeholder="City / District" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white text-slate-600">
+                    <input type="text" value={newAddress.name} onChange={e => setNewAddress({...newAddress, name: e.target.value})} placeholder="Full Name" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <input type="text" value={newAddress.phone} onChange={e => setNewAddress({...newAddress, phone: e.target.value})} placeholder="Mobile Number" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <input type="text" value={newAddress.pincode} onChange={e => setNewAddress({...newAddress, pincode: e.target.value})} placeholder="Pincode" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <input type="text" value={newAddress.locality} onChange={e => setNewAddress({...newAddress, locality: e.target.value})} placeholder="Locality / Town" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <textarea value={newAddress.address} onChange={e => setNewAddress({...newAddress, address: e.target.value})} placeholder="Address (Area and Street)" rows="3" className="w-full md:col-span-2 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white resize-none"></textarea>
+                    <input type="text" value={newAddress.city} onChange={e => setNewAddress({...newAddress, city: e.target.value})} placeholder="City / District" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <select value={newAddress.state} onChange={e => setNewAddress({...newAddress, state: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white text-slate-600">
                       <option value="">Select State</option>
                       <option value="Karnataka">Karnataka</option>
                       <option value="Maharashtra">Maharashtra</option>
                       <option value="Delhi">Delhi</option>
+                      <option value="Tamil Nadu">Tamil Nadu</option>
+                      <option value="Kerala">Kerala</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
                   
@@ -146,14 +230,14 @@ const Checkout = () => {
                     <div className="flex gap-6">
                       <label className="flex items-center gap-2 cursor-pointer group">
                         <div className="relative flex items-center justify-center w-5 h-5">
-                          <input type="radio" name="addressType" className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-full checked:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all" />
+                          <input type="radio" name="addressType" value="Home" checked={newAddress.type === 'Home'} onChange={e => setNewAddress({...newAddress, type: e.target.value})} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-full checked:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all" />
                           <div className="absolute w-2.5 h-2.5 rounded-full bg-orange-500 opacity-0 peer-checked:opacity-100 transition-opacity"></div>
                         </div>
                         <span className="text-slate-700 font-medium group-hover:text-orange-600 transition-colors">Home</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer group">
                         <div className="relative flex items-center justify-center w-5 h-5">
-                          <input type="radio" name="addressType" className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-full checked:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all" />
+                          <input type="radio" name="addressType" value="Work" checked={newAddress.type === 'Work'} onChange={e => setNewAddress({...newAddress, type: e.target.value})} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-full checked:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all" />
                           <div className="absolute w-2.5 h-2.5 rounded-full bg-orange-500 opacity-0 peer-checked:opacity-100 transition-opacity"></div>
                         </div>
                         <span className="text-slate-700 font-medium group-hover:text-orange-600 transition-colors">Work</span>
@@ -162,8 +246,12 @@ const Checkout = () => {
                   </div>
                   
                   <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                    <button className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition-all active:scale-95 text-center">
-                      Save & Deliver Here
+                    <button 
+                      onClick={handleSaveAddress}
+                      disabled={isProcessing}
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition-all active:scale-95 text-center disabled:opacity-50"
+                    >
+                      {isProcessing ? 'Saving...' : 'Save & Deliver Here'}
                     </button>
                     <button 
                       onClick={() => setShowNewAddressForm(false)}

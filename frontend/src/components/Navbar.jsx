@@ -1,12 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, User, Mic, Heart, Headset } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../services/supabase';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [wishlistCount, setWishlistCount] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
+  const [user, setUser] = useState(null);
 
+  useEffect(() => {
+    const fetchUserAndCounts = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        fetchCounts(user.id);
+      }
+    };
+
+    fetchUserAndCounts();
+
+    const handleWishlistUpdate = () => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) fetchCounts(user.id);
+      });
+    };
+
+    const handleCartUpdate = () => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) fetchCounts(user.id);
+      });
+    };
+
+    window.addEventListener('wishlistUpdated', handleWishlistUpdate);
+    window.addEventListener('cartUpdated', handleCartUpdate);
+
+    return () => {
+      window.removeEventListener('wishlistUpdated', handleWishlistUpdate);
+      window.removeEventListener('cartUpdated', handleCartUpdate);
+    };
+  }, []);
+
+  const fetchCounts = async (userId) => {
+    try {
+      const { count: wCount } = await supabase
+        .from('wishlist')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      
+      if (wCount !== null) setWishlistCount(wCount);
+
+      const { data: userCart } = await supabase
+        .from('carts')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+        
+      if (userCart) {
+        const { count: cCount } = await supabase
+          .from('cart_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('cart_id', userCart.id);
+          
+        if (cCount !== null) setCartCount(cCount);
+      } else {
+        setCartCount(0);
+      }
+    } catch (error) {
+      console.error("Error fetching counts:", error);
+    }
+  };
   const startListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -84,17 +149,21 @@ const Navbar = () => {
               <Headset className="h-6 w-6 group-hover:-translate-y-1 transition-transform" />
               <span className="text-xs font-semibold mt-1">Contact</span>
             </Link>
-            <Link to="/login" className="flex flex-col items-center text-slate-600 hover:text-orange-500 transition-colors group">
+            <Link to={user ? "/profile" : "/login"} className="flex flex-col items-center text-slate-600 hover:text-orange-500 transition-colors group">
               <User className="h-6 w-6 group-hover:-translate-y-1 transition-transform" />
-              <span className="text-xs font-semibold mt-1">Profile</span>
+              <span className="text-xs font-semibold mt-1">{user ? "Profile" : "Login"}</span>
             </Link>
             <Link to="/wishlist" className="flex flex-col items-center text-slate-600 hover:text-orange-500 transition-colors relative group">
-              <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white shadow-sm">5</div>
+              {wishlistCount > 0 && (
+                <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white shadow-sm">{wishlistCount}</div>
+              )}
               <Heart className="h-6 w-6 group-hover:-translate-y-1 transition-transform" />
               <span className="text-xs font-semibold mt-1">Wishlist</span>
             </Link>
             <Link to="/cart" className="flex flex-col items-center text-slate-600 hover:text-orange-500 transition-colors relative group">
-              <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white shadow-sm">3</div>
+              {cartCount > 0 && (
+                <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white shadow-sm">{cartCount}</div>
+              )}
               <ShoppingCart className="h-6 w-6 group-hover:-translate-y-1 transition-transform" />
               <span className="text-xs font-semibold mt-1">Cart</span>
             </Link>
