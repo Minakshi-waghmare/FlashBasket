@@ -3,6 +3,7 @@ package com.flashbasket.backend.model;
 import jakarta.persistence.*;
 
 @Entity
+@Table(name = "review")
 public class Review {
 
     @Id
@@ -10,26 +11,20 @@ public class Review {
     private Long id;
 
     private String comment;
+
     private int rating;
 
+    @Column(name = "product_id")
     private Long productId;
 
+    @Column(name = "user_id")
+    private Long userId;
+
+    @Column(name = "user_name")
     private String userName;
 
-    // 🔹 Default constructor
     public Review() {
     }
-
-    // 🔹 Parameterized constructor (optional but useful)
-    public Review(Long id, String comment, int rating, Long productId, String userName) {
-        this.id = id;
-        this.comment = comment;
-        this.rating = rating;
-        this.productId = productId;
-        this.userName = userName;
-    }
-
-    // 🔹 Getters and Setters
 
     public Long getId() {
         return id;
@@ -61,6 +56,14 @@ public class Review {
 
     public void setProductId(Long productId) {
         this.productId = productId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getUserName() {

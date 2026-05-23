@@ -1,14 +1,16 @@
 package com.flashbasket.backend.serviceImpl;
 
 import com.flashbasket.backend.dto.CartItemDTO;
-import com.flashbasket.backend.model.*;
-import com.flashbasket.backend.repository.*;
+import com.flashbasket.backend.model.Cart;
+import com.flashbasket.backend.model.CartItem;
+import com.flashbasket.backend.repository.CartItemRepository;
+import com.flashbasket.backend.repository.CartRepository;
 import com.flashbasket.backend.service.CartService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -17,63 +19,63 @@ public class CartServiceImpl implements CartService {
 
         private final CartRepository cartRepository;
         private final CartItemRepository cartItemRepository;
-        private final ProductRepository productRepository;
-        private final UserRepository userRepository; // 🔥 ADD THIS
 
-        // 🔥 GET OR CREATE CART
+        // GET OR CREATE CART
         private Cart getOrCreateCart(Long userId) {
 
                 return cartRepository.findByUserId(userId)
                                 .orElseGet(() -> {
 
-                                        User user = userRepository.findById(userId)
-                                                        .orElseThrow(() -> new RuntimeException("User not found"));
-
                                         Cart cart = new Cart();
-                                        cart.setUser(user);
+                                        cart.setUserId(userId);
 
                                         return cartRepository.save(cart);
                                 });
         }
 
-        // ➕ ADD TO CART
+        // ADD TO CART
         @Override
         public CartItemDTO addToCart(CartItemDTO dto) {
 
-                if (dto.getProductId() == null || dto.getUserId() == null) {
-                        throw new RuntimeException("UserId and ProductId are required");
-                }
-
                 Cart cart = getOrCreateCart(dto.getUserId());
 
-                Product product = productRepository.findById(dto.getProductId())
-                                .orElseThrow(() -> new RuntimeException("Product not found"));
+                Optional<CartItem> existingItem = cartItemRepository.findByCartIdAndProductId(
+                                cart.getId(),
+                                dto.getProductId());
 
-                CartItem item = cartItemRepository
-                                .findByCartIdAndProductId(cart.getId(), product.getId())
-                                .orElse(null);
+                CartItem cartItem;
 
-                if (item == null) {
-                        item = new CartItem();
-                        item.setCart(cart);
-                        item.setProduct(product);
-                        item.setQuantity(dto.getQuantity());
+                if (existingItem.isPresent()) {
+
+                        cartItem = existingItem.get();
+
+                        cartItem.setQuantity(
+                                        cartItem.getQuantity() + dto.getQuantity());
+
                 } else {
-                        item.setQuantity(item.getQuantity() + dto.getQuantity());
+
+                        cartItem = new CartItem();
+
+                        cartItem.setCartId(cart.getId());
+
+                        cartItem.setProductId(dto.getProductId());
+
+                        cartItem.setQuantity(dto.getQuantity());
                 }
 
-                item.setPriceAtTime(BigDecimal.valueOf(product.getPrice()));
+                CartItem savedItem = cartItemRepository.save(cartItem);
 
-                CartItem saved = cartItemRepository.save(item);
+                CartItemDTO response = new CartItemDTO();
 
-                dto.setId(saved.getId());
-                dto.setProductName(product.getName());
-                dto.setPrice(product.getPrice());
+                response.setId(savedItem.getId());
+                response.setUserId(dto.getUserId());
+                response.setProductId(savedItem.getProductId());
+                response.setQuantity(savedItem.getQuantity());
 
-                return dto;
+                return response;
         }
 
-        // 📥 GET CART
+        // GET CART
         @Override
         public List<CartItemDTO> getCartByUser(Long userId) {
 
@@ -82,23 +84,24 @@ public class CartServiceImpl implements CartService {
                 return cartItemRepository.findByCartId(cart.getId())
                                 .stream()
                                 .map(item -> {
+
                                         CartItemDTO dto = new CartItemDTO();
+
                                         dto.setId(item.getId());
                                         dto.setUserId(userId);
-                                        dto.setProductId(item.getProduct().getId());
-                                        dto.setProductName(item.getProduct().getName());
-                                        dto.setPrice(item.getPriceAtTime().doubleValue());
+                                        dto.setProductId(item.getProductId());
                                         dto.setQuantity(item.getQuantity());
+
                                         return dto;
                                 })
                                 .collect(Collectors.toList());
         }
 
-        // ✏️ UPDATE QUANTITY
+        // UPDATE QUANTITY
         @Override
         public CartItemDTO updateQuantity(Long cartItemId, Integer quantity) {
 
-                if (quantity == null || quantity <= 0) {
+                if (quantity <= 0) {
                         throw new RuntimeException("Quantity must be greater than 0");
                 }
 
@@ -110,16 +113,15 @@ public class CartServiceImpl implements CartService {
                 CartItem saved = cartItemRepository.save(item);
 
                 CartItemDTO dto = new CartItemDTO();
+
                 dto.setId(saved.getId());
-                dto.setProductId(saved.getProduct().getId());
-                dto.setProductName(saved.getProduct().getName());
-                dto.setPrice(saved.getPriceAtTime().doubleValue());
+                dto.setProductId(saved.getProductId());
                 dto.setQuantity(saved.getQuantity());
 
                 return dto;
         }
 
-        // ❌ REMOVE ITEM
+        // REMOVE ITEM
         @Override
         public void removeFromCart(Long cartItemId) {
 
@@ -130,7 +132,7 @@ public class CartServiceImpl implements CartService {
                 cartItemRepository.deleteById(cartItemId);
         }
 
-        // 🧹 CLEAR CART
+        // CLEAR CART
         @Override
         public void clearCart(Long userId) {
 

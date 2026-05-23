@@ -34,24 +34,20 @@ public class OrderServiceImpl implements OrderService {
 
         Long userId = dto.getUserId();
 
-        // 1️⃣ Get cart
         Cart cart = cartRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
-        // 2️⃣ Get cart items
         List<CartItem> cartItems = cartItemRepository.findByCartId(cart.getId());
 
         if (cartItems.isEmpty()) {
             throw new RuntimeException("Cart is empty");
         }
 
-        // 3️⃣ Calculate total
         double totalAmount = cartItems.stream()
                 .mapToDouble(item -> item.getQuantity() *
                         item.getPriceAtTime().doubleValue())
                 .sum();
 
-        // 4️⃣ Create Order
         Order order = new Order();
         order.setUserId(userId);
         order.setTotalAmount(totalAmount);
@@ -63,10 +59,8 @@ public class OrderServiceImpl implements OrderService {
 
         Order saved = orderRepository.save(order);
 
-        // 5️⃣ Clear cart (CORRECT WAY)
         cartItemRepository.deleteByCartId(cart.getId());
 
-        // 6️⃣ Return DTO
         dto.setId(saved.getId());
         dto.setTotalAmount(saved.getTotalAmount());
         dto.setStatus(saved.getStatus());
