@@ -89,7 +89,7 @@ const Navbar = () => {
         wishlistQuery = wishlistQuery.eq('user_id', 0);
       }
       const { count: wCount } = await wishlistQuery;
-      
+
       if (wCount !== null) setWishlistCount(wCount);
 
       // Fetch cart using bigint id
@@ -100,13 +100,13 @@ const Navbar = () => {
         cartQuery = cartQuery.eq('user_id', 0);
       }
       const { data: userCart } = await cartQuery.maybeSingle();
-         
+
       if (userCart) {
         const { count: cCount } = await supabase
           .from('cart_items')
           .select('*', { count: 'exact', head: true })
           .eq('cart_id', userCart.id);
-          
+
         if (cCount !== null) setCartCount(cCount);
       } else {
         setCartCount(0);
@@ -128,7 +128,7 @@ const Navbar = () => {
     recognition.lang = 'en-US';
 
     recognition.onstart = () => setIsListening(true);
-    
+
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       setSearchQuery(transcript);
@@ -162,29 +162,29 @@ const Navbar = () => {
               <span className="text-2xl font-black text-orange-500 tracking-tight">Flash<span className="text-slate-900">Basket</span></span>
             </Link>
           </div>
-          
+
           <div className="flex-1 max-w-2xl mx-8 hidden md:block">
-              <div className="relative group flex items-center w-full">
-                <input 
-                  type="text" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch(e)}
-                  placeholder={isListening ? "Listening..." : "Search for products, brands and more..."} 
-                  className="w-full bg-slate-100 border-2 border-transparent rounded-lg py-2.5 pl-4 pr-20 focus:border-orange-500 focus:bg-white transition-all outline-none text-slate-800 shadow-inner"
-                />
-                <button 
-                  onClick={startListening}
-                  className={`absolute right-12 h-full px-3 transition-colors flex items-center justify-center ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-400 hover:text-orange-500'}`}
-                >
-                    <Mic className="h-5 w-5" />
-                </button>
-                <button 
-                  onClick={handleSearch}
-                  className="absolute right-0 h-full px-4 bg-orange-500 rounded-r-lg text-white hover:bg-orange-600 transition-colors flex items-center justify-center">
-                    <Search className="h-5 w-5" />
-                </button>
-              </div>
+            <div className="relative group flex items-center w-full">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch(e)}
+                placeholder={isListening ? "Listening..." : "Search for products, brands and more..."}
+                className="w-full bg-slate-100 border-2 border-transparent rounded-lg py-2.5 pl-4 pr-20 focus:border-orange-500 focus:bg-white transition-all outline-none text-slate-800 shadow-inner"
+              />
+              <button
+                onClick={startListening}
+                className={`absolute right-12 h-full px-3 transition-colors flex items-center justify-center ${isListening ? 'text-red-500 animate-pulse' : 'text-slate-400 hover:text-orange-500'}`}
+              >
+                <Mic className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleSearch}
+                className="absolute right-0 h-full px-4 bg-orange-500 rounded-r-lg text-white hover:bg-orange-600 transition-colors flex items-center justify-center">
+                <Search className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center space-x-8">

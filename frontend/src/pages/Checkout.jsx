@@ -15,7 +15,7 @@ const Checkout = () => {
   const [user, setUser] = useState(null);
   const [cartItems, setCartItems] = useState([]);
   const [loadingCart, setLoadingCart] = useState(true);
-  
+
   // New Address Form State
   const [newAddress, setNewAddress] = useState({
     name: '',
@@ -51,7 +51,7 @@ const Checkout = () => {
     if (!currentUser) return;
     try {
       setLoadingCart(true);
-      
+
       let cartQuery = supabase.from('carts').select('id');
       if (dbUserId) {
         cartQuery = cartQuery.eq('user_id', dbUserId);
@@ -101,7 +101,8 @@ const Checkout = () => {
       }
     } catch (err) {
       console.error("Error fetching cart for checkout:", err);
-    } finally {
+    }
+    finally {
       setLoadingCart(false);
     }
   };
@@ -149,13 +150,13 @@ const Checkout = () => {
         }
 
         const { data, error } = await queryBuilder;
-        
+
         if (error) throw error;
         setAddresses(data || []);
         if (data && data.length > 0) {
           setSelectedAddress(data[0].id);
         }
-        
+
         await fetchCartItems(user, dbUserId);
       }
     } catch (err) {
@@ -170,77 +171,77 @@ const Checkout = () => {
       setError("Please login to save address.");
       return;
     }
-    
+
     // Basic validation
     if (!newAddress.name || !newAddress.phone || !newAddress.address || !newAddress.city || !newAddress.state || !newAddress.pincode) {
-       setError("Please fill all required address fields.");
-       return;
-     }
-     
-     try {
-       setIsProcessing(true);
-       setError(null);
+      setError("Please fill all required address fields.");
+      return;
+    }
 
-       // Get the bigint user_id
-       let dbUserId = null;
-       try {
-         const { data: dbUser } = await supabase
-           .from('users')
-           .select('id')
-           .eq('email', user.email)
-           .maybeSingle();
-         
-         if (!dbUser) {
-           const { data: newUser } = await supabase
-             .from('users')
-             .insert([{
-               email: user.email,
-               name: user.user_metadata?.full_name || user.email.split('@')[0],
-               role: 'customer'
-             }])
-             .select('id')
-             .maybeSingle();
-           dbUserId = newUser ? newUser.id : null;
-         } else {
-           dbUserId = dbUser.id;
-         }
-       } catch (dbErr) {
-         console.error("Error syncing user for address save:", dbErr);
-       }
-       
-       const payload = {
-          user_id: dbUserId || user.id, // Fallback to uuid if dbUser fails
-          full_name: newAddress.name,
-          phone_number: newAddress.phone,
-          street: newAddress.locality ? `${newAddress.address}, ${newAddress.locality}` : newAddress.address,
-          city: newAddress.city,
-          state: newAddress.state,
-          pincode: newAddress.pincode,
-          country: 'India'
-       };
-       
-       const { data, error } = await supabase
-         .from('address')
-         .insert([payload])
-         .select();
-         
-       if (error) throw error;
-       
-       if (data && data.length > 0) {
-          setAddresses([...addresses, data[0]]);
-          setSelectedAddress(data[0].id);
-          setShowNewAddressForm(false);
-          // Reset form
-          setNewAddress({
-             name: '', phone: '', pincode: '', locality: '', address: '', city: '', state: '', type: 'Home'
-          });
-       }
-     } catch (err) {
-       console.error("Error saving address:", err);
-       setError("Could not save address. " + err.message);
-     } finally {
-       setIsProcessing(false);
-     }
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      // Get the bigint user_id
+      let dbUserId = null;
+      try {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle();
+
+        if (!dbUser) {
+          const { data: newUser } = await supabase
+            .from('users')
+            .insert([{
+              email: user.email,
+              name: user.user_metadata?.full_name || user.email.split('@')[0],
+              role: 'customer'
+            }])
+            .select('id')
+            .maybeSingle();
+          dbUserId = newUser ? newUser.id : null;
+        } else {
+          dbUserId = dbUser.id;
+        }
+      } catch (dbErr) {
+        console.error("Error syncing user for address save:", dbErr);
+      }
+
+      const payload = {
+        user_id: dbUserId || user.id, // Fallback to uuid if dbUser fails
+        full_name: newAddress.name,
+        phone_number: newAddress.phone,
+        street: newAddress.locality ? `${newAddress.address}, ${newAddress.locality}` : newAddress.address,
+        city: newAddress.city,
+        state: newAddress.state,
+        pincode: newAddress.pincode,
+        country: 'India'
+      };
+
+      const { data, error } = await supabase
+        .from('address')
+        .insert([payload])
+        .select();
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setAddresses([...addresses, data[0]]);
+        setSelectedAddress(data[0].id);
+        setShowNewAddressForm(false);
+        // Reset form
+        setNewAddress({
+          name: '', phone: '', pincode: '', locality: '', address: '', city: '', state: '', type: 'Home'
+        });
+      }
+    } catch (err) {
+      console.error("Error saving address:", err);
+      setError("Could not save address. " + err.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -392,9 +393,9 @@ const Checkout = () => {
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpaySignature: response.razorpay_signature
               };
-              
+
               await api.post('/payment/verify', verifyPayload);
-              
+
               // Clear cart items in Supabase upon successful payment
               await clearUserCart(dbUserId);
               navigate('/order-success');
@@ -414,7 +415,7 @@ const Checkout = () => {
             color: '#F97316'
           },
           modal: {
-            ondismiss: function() {
+            ondismiss: function () {
               setIsProcessing(false);
             }
           }
@@ -440,13 +441,13 @@ const Checkout = () => {
         cartQuery = cartQuery.eq('user_id', 0);
       }
       const { data: userCarts } = await cartQuery;
-        
+
       if (userCarts && userCarts.length > 0) {
         await supabase
           .from('cart_items')
           .delete()
           .eq('cart_id', userCarts[0].id);
-        
+
         window.dispatchEvent(new Event('cartUpdated'));
       }
     } catch (clearErr) {
@@ -459,7 +460,7 @@ const Checkout = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-slate-50 min-h-screen">
       <h1 className="text-3xl font-extrabold text-slate-900 mb-8">Checkout</h1>
-      
+
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Delivery Address Section */}
         <div className="lg:w-2/3 space-y-6">
@@ -467,7 +468,7 @@ const Checkout = () => {
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-6">
               <MapPin className="text-orange-500" /> Delivery Address
             </h2>
-            
+
             <div className="space-y-4">
               {loadingAddresses ? (
                 <div className="text-slate-500 py-4 flex items-center"><Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading addresses...</div>
@@ -475,14 +476,13 @@ const Checkout = () => {
                 <div className="text-slate-500 py-4 italic">No addresses saved yet. Please add a new address.</div>
               ) : (
                 addresses.map((addr) => (
-                  <div 
+                  <div
                     key={addr.id}
                     onClick={() => setSelectedAddress(addr.id)}
-                    className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 ${
-                      selectedAddress === addr.id 
-                        ? 'border-orange-500 bg-orange-50/50 shadow-sm' 
+                    className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 ${selectedAddress === addr.id
+                        ? 'border-orange-500 bg-orange-50/50 shadow-sm'
                         : 'border-slate-100 hover:border-orange-300 bg-white'
-                    }`}
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-3">
@@ -493,7 +493,7 @@ const Checkout = () => {
                     </div>
                     <p className="text-slate-600 text-sm mb-2 leading-relaxed">{addr.street || addr.address}, {addr.city}, {addr.state} - <span className="font-bold text-slate-800">{addr.pincode}</span></p>
                     <p className="text-slate-600 text-sm font-medium">Mobile: <span className="text-slate-800">{addr.phone_number || addr.phone}</span></p>
-                    
+
                     {selectedAddress === addr.id && (
                       <button className="mt-5 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-8 rounded-lg shadow-md hover:shadow-orange-500/25 transition-all text-sm">
                         Deliver Here
@@ -507,7 +507,7 @@ const Checkout = () => {
             {/* Add New Address Form */}
             <div className="mt-8">
               {!showNewAddressForm ? (
-                <button 
+                <button
                   onClick={() => setShowNewAddressForm(true)}
                   className="flex items-center gap-2 text-orange-500 font-bold hover:text-orange-600 transition-colors py-3"
                 >
@@ -517,13 +517,13 @@ const Checkout = () => {
                 <div className="mt-2 border border-slate-200 rounded-2xl p-6 md:p-8 bg-slate-50/50 shadow-inner animate-in fade-in slide-in-from-top-4 duration-300">
                   <h3 className="font-bold text-slate-800 mb-6 text-lg border-b border-slate-200 pb-3">Add New Address</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <input type="text" value={newAddress.name} onChange={e => setNewAddress({...newAddress, name: e.target.value})} placeholder="Full Name" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <input type="text" value={newAddress.phone} onChange={e => setNewAddress({...newAddress, phone: e.target.value})} placeholder="Mobile Number" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <input type="text" value={newAddress.pincode} onChange={e => setNewAddress({...newAddress, pincode: e.target.value})} placeholder="Pincode" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <input type="text" value={newAddress.locality} onChange={e => setNewAddress({...newAddress, locality: e.target.value})} placeholder="Locality / Town" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <textarea value={newAddress.address} onChange={e => setNewAddress({...newAddress, address: e.target.value})} placeholder="Address (Area and Street)" rows="3" className="w-full md:col-span-2 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white resize-none"></textarea>
-                    <input type="text" value={newAddress.city} onChange={e => setNewAddress({...newAddress, city: e.target.value})} placeholder="City / District" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
-                    <select value={newAddress.state} onChange={e => setNewAddress({...newAddress, state: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white text-slate-600">
+                    <input type="text" value={newAddress.name} onChange={e => setNewAddress({ ...newAddress, name: e.target.value })} placeholder="Full Name" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <input type="text" value={newAddress.phone} onChange={e => setNewAddress({ ...newAddress, phone: e.target.value })} placeholder="Mobile Number" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <input type="text" value={newAddress.pincode} onChange={e => setNewAddress({ ...newAddress, pincode: e.target.value })} placeholder="Pincode" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <input type="text" value={newAddress.locality} onChange={e => setNewAddress({ ...newAddress, locality: e.target.value })} placeholder="Locality / Town" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <textarea value={newAddress.address} onChange={e => setNewAddress({ ...newAddress, address: e.target.value })} placeholder="Address (Area and Street)" rows="3" className="w-full md:col-span-2 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white resize-none"></textarea>
+                    <input type="text" value={newAddress.city} onChange={e => setNewAddress({ ...newAddress, city: e.target.value })} placeholder="City / District" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white" />
+                    <select value={newAddress.state} onChange={e => setNewAddress({ ...newAddress, state: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all bg-white text-slate-600">
                       <option value="">Select State</option>
                       <option value="Karnataka">Karnataka</option>
                       <option value="Maharashtra">Maharashtra</option>
@@ -533,36 +533,36 @@ const Checkout = () => {
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                  
+
                   <div className="mt-6 pt-6 border-t border-slate-200">
                     <p className="text-sm font-semibold text-slate-600 mb-3">Address Type</p>
                     <div className="flex gap-6">
                       <label className="flex items-center gap-2 cursor-pointer group">
                         <div className="relative flex items-center justify-center w-5 h-5">
-                          <input type="radio" name="addressType" value="Home" checked={newAddress.type === 'Home'} onChange={e => setNewAddress({...newAddress, type: e.target.value})} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-full checked:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all" />
+                          <input type="radio" name="addressType" value="Home" checked={newAddress.type === 'Home'} onChange={e => setNewAddress({ ...newAddress, type: e.target.value })} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-full checked:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all" />
                           <div className="absolute w-2.5 h-2.5 rounded-full bg-orange-500 opacity-0 peer-checked:opacity-100 transition-opacity"></div>
                         </div>
                         <span className="text-slate-700 font-medium group-hover:text-orange-600 transition-colors">Home</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer group">
                         <div className="relative flex items-center justify-center w-5 h-5">
-                          <input type="radio" name="addressType" value="Work" checked={newAddress.type === 'Work'} onChange={e => setNewAddress({...newAddress, type: e.target.value})} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-full checked:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all" />
+                          <input type="radio" name="addressType" value="Work" checked={newAddress.type === 'Work'} onChange={e => setNewAddress({ ...newAddress, type: e.target.value })} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-full checked:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all" />
                           <div className="absolute w-2.5 h-2.5 rounded-full bg-orange-500 opacity-0 peer-checked:opacity-100 transition-opacity"></div>
                         </div>
                         <span className="text-slate-700 font-medium group-hover:text-orange-600 transition-colors">Work</span>
                       </label>
                     </div>
                   </div>
-                  
+
                   <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                    <button 
+                    <button
                       onClick={handleSaveAddress}
                       disabled={isProcessing}
                       className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition-all active:scale-95 text-center disabled:opacity-50"
                     >
                       {isProcessing ? 'Saving...' : 'Save & Deliver Here'}
                     </button>
-                    <button 
+                    <button
                       onClick={() => setShowNewAddressForm(false)}
                       className="text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 font-bold py-3.5 px-6 rounded-xl transition-all text-center"
                     >
@@ -580,16 +580,15 @@ const Checkout = () => {
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-6">
               <CreditCard className="text-orange-500" /> Payment Options
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* COD */}
-              <div 
+              <div
                 onClick={() => setSelectedPayment('cod')}
-                className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${
-                  selectedPayment === 'cod' 
-                    ? 'border-orange-500 bg-orange-50/50 shadow-sm' 
+                className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${selectedPayment === 'cod'
+                    ? 'border-orange-500 bg-orange-50/50 shadow-sm'
                     : 'border-slate-100 hover:border-orange-300 bg-white'
-                }`}
+                  }`}
               >
                 <div className="relative">
                   <Banknote className={`w-8 h-8 ${selectedPayment === 'cod' ? 'text-orange-500' : 'text-slate-400'}`} />
@@ -601,13 +600,12 @@ const Checkout = () => {
               </div>
 
               {/* UPI */}
-              <div 
+              <div
                 onClick={() => setSelectedPayment('upi')}
-                className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${
-                  selectedPayment === 'upi' 
-                    ? 'border-orange-500 bg-orange-50/50 shadow-sm' 
+                className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${selectedPayment === 'upi'
+                    ? 'border-orange-500 bg-orange-50/50 shadow-sm'
                     : 'border-slate-100 hover:border-orange-300 bg-white'
-                }`}
+                  }`}
               >
                 <div className="relative">
                   <Smartphone className={`w-8 h-8 ${selectedPayment === 'upi' ? 'text-orange-500' : 'text-slate-400'}`} />
@@ -619,13 +617,12 @@ const Checkout = () => {
               </div>
 
               {/* Card / Razorpay placeholder */}
-              <div 
+              <div
                 onClick={() => setSelectedPayment('card')}
-                className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${
-                  selectedPayment === 'card' 
-                    ? 'border-orange-500 bg-orange-50/50 shadow-sm' 
+                className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${selectedPayment === 'card'
+                    ? 'border-orange-500 bg-orange-50/50 shadow-sm'
                     : 'border-slate-100 hover:border-orange-300 bg-white'
-                }`}
+                  }`}
               >
                 <div className="relative">
                   <CreditCard className={`w-8 h-8 ${selectedPayment === 'card' ? 'text-orange-500' : 'text-slate-400'}`} />
@@ -643,7 +640,7 @@ const Checkout = () => {
                 <p>You will be securely redirected to <strong>Razorpay</strong> to complete your card payment.</p>
               </div>
             )}
-            
+
             {selectedPayment === 'upi' && (
               <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 flex items-center gap-3 animate-in fade-in">
                 <Smartphone className="w-5 h-5 text-slate-400 flex-shrink-0" />
@@ -652,12 +649,12 @@ const Checkout = () => {
             )}
           </div>
         </div>
-        
+
         {/* Order Summary Section */}
         <div className="lg:w-1/3">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-24">
             <h2 className="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Order Summary</h2>
-            
+
             <div className="space-y-4 mb-6 border-b border-slate-100 pb-6 max-h-80 overflow-y-auto pr-2">
               {loadingCart ? (
                 <div className="text-slate-500 py-4 flex items-center"><Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading items...</div>
@@ -701,7 +698,7 @@ const Checkout = () => {
                 <span className="text-2xl font-black text-slate-900">₹{total.toLocaleString()}</span>
               </div>
             </div>
-            
+
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg flex items-start gap-2 animate-in fade-in slide-in-from-top-2">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -709,14 +706,13 @@ const Checkout = () => {
               </div>
             )}
 
-            <button 
+            <button
               onClick={handlePlaceOrder}
               disabled={isProcessing || loadingCart || cartItems.length === 0}
-              className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transform transition-all flex items-center justify-center text-lg ${
-                isProcessing || loadingCart || cartItems.length === 0
-                  ? 'bg-slate-400 cursor-not-allowed' 
+              className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transform transition-all flex items-center justify-center text-lg ${isProcessing || loadingCart || cartItems.length === 0
+                  ? 'bg-slate-400 cursor-not-allowed'
                   : 'bg-emerald-500 hover:bg-emerald-600 hover:shadow-emerald-500/30 hover:-translate-y-1'
-              }`}
+                }`}
             >
               {isProcessing ? (
                 <>

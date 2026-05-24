@@ -11,21 +11,19 @@ public class Review {
     private Long id;
 
     private String comment;
+    private Integer rating;
 
-    private int rating;
-
+    // Force Hibernate to read/write snake_case properties
     @Column(name = "product_id")
     private Long productId;
-
-    @Column(name = "user_id")
-    private Long userId;
 
     @Column(name = "user_name")
     private String userName;
 
-    public Review() {
-    }
+    @Column(name = "user_id")
+    private Long userId;
 
+    // Standard Getters and Setters
     public Long getId() {
         return id;
     }
@@ -42,11 +40,11 @@ public class Review {
         this.comment = comment;
     }
 
-    public int getRating() {
+    public Integer getRating() {
         return rating;
     }
 
-    public void setRating(int rating) {
+    public void setRating(Integer rating) {
         this.rating = rating;
     }
 
@@ -58,19 +56,19 @@ public class Review {
         this.productId = productId;
     }
 
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
     public String getUserName() {
         return userName;
     }
 
     public void setUserName(String userName) {
         this.userName = userName;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }
