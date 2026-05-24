@@ -18,13 +18,13 @@ const Search = () => {
     try {
       setLoading(true);
       let queryBuilder = supabase.from('product').select('*');
-      
+
       if (query) {
         queryBuilder = queryBuilder.ilike('name', `%${query}%`);
       }
-      
+
       const { data, error } = await queryBuilder;
-        
+
       if (error) throw error;
       setResults(data || []);
     } catch (error) {
@@ -41,10 +41,10 @@ const Search = () => {
       window.showToast?.("Please login to add items to your cart.", "info");
       return;
     }
-    
+
     try {
       await addToCartLogic(user, productId);
-      
+
       window.showToast?.("Added to cart successfully!", "success");
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (err) {
@@ -73,38 +73,52 @@ const Search = () => {
         <div className="text-center py-20 text-slate-500 font-bold text-xl">Searching...</div>
       ) : results.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {results.map((item) => (
-            <Link to={`/product/${item.id}`} key={item.id} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-slate-100 flex flex-col h-full transform hover:-translate-y-1 block">
-              <div className="h-64 bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
-                 <div className="w-full h-full bg-white rounded-xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105 overflow-hidden">
-                     {item.imageUrl ? (
-                       <img src={item.imageUrl?.startsWith('http') || item.imageUrl?.startsWith('/') ? item.imageUrl : '/' + item.imageUrl} alt={item.name} className="object-contain h-full w-full" />
-                     ) : (
-                       <span className="text-slate-400 font-medium text-sm">No Image</span>
-                     )}
-                 </div>
-              </div>
-              <div className="p-6 flex-grow flex flex-col justify-between">
-                <div>
+          {results.map((item) => {
+            // Determine if backend sent data as image_url or imageUrl
+            const actualImageSource = item.imageUrl || item.image_url;
+
+            return (
+              <Link to={`/product/${item.id}`} key={item.id} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-slate-100 flex flex-col h-full transform hover:-translate-y-1 block">
+                <div className="h-64 bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
+                  <div className="w-full h-full bg-white rounded-xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105 overflow-hidden">
+                    <img
+                      src={
+                        actualImageSource
+                          ? (actualImageSource.startsWith('http') || actualImageSource.startsWith('/') ? actualImageSource : '/' + actualImageSource)
+                          : 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80' // Visual Fallback Placeholder
+                      }
+                      alt={item.name}
+                      className="object-contain h-full w-full"
+                      onError={(e) => {
+                        // Safe fallback handling if file name path string is broken
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="p-6 flex-grow flex flex-col justify-between">
+                  <div>
                     <p className="text-xs text-orange-500 font-bold mb-1 uppercase tracking-wider">{item.category || 'General'}</p>
                     <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-orange-500 transition-colors line-clamp-2">{item.name}</h3>
-                </div>
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-black text-slate-900">₹{item.price}</span>
                   </div>
-                  <button className="bg-slate-900 hover:bg-orange-500 text-white rounded-xl p-3 transition-all duration-200 shadow-md hover:shadow-orange-500/25 active:scale-95" onClick={(e) => addToCart(e, item.id)}>
-                    <ShoppingCart className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
+                    <div className="flex flex-col">
+                      <span className="text-2xl font-black text-slate-900">₹{item.price}</span>
+                    </div>
+                    <button className="bg-slate-900 hover:bg-orange-500 text-white rounded-xl p-3 transition-all duration-200 shadow-md hover:shadow-orange-500/25 active:scale-95" onClick={(e) => addToCart(e, item.id)}>
+                      <ShoppingCart className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-100 shadow-sm text-center px-4">
           <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-             <SearchIcon className="h-10 w-10 text-slate-300" />
+            <SearchIcon className="h-10 w-10 text-slate-300" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">No products found</h2>
           <p className="text-slate-500 max-w-md mx-auto mb-8">We couldn't find any products matching "{query}". Try checking your spelling or using more general terms.</p>

@@ -15,4 +15,6 @@ public interface CategoryService {
     CategoryDTO updateCategory(Long id, CategoryDTO dto);
 
     void deleteCategory(Long id);
+
+    List<com.flashbasket.backend.dto.ProductDTO> getProductsByCategoryName(String name);
 }

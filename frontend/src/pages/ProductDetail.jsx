@@ -15,11 +15,10 @@ const ProductDetail = () => {
   const [stockQuantity, setStockQuantity] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
-  // Identity Profiles
-  const [sbUser, setSbUser] = useState(null);       // Supabase Auth Context
-  const [dbUserId, setDbUserId] = useState(null);   // Public.users relational bigint ID
+  // User State
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // Review states 
+  // Review states connected to Supabase
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -29,48 +28,19 @@ const ProductDetail = () => {
   useEffect(() => {
     fetchProduct();
     fetchReviews();
-    syncUserIdentity();
+    getCurrentUser();
   }, [id]);
 
-  // Fetches Supabase session and matches it to your database users (id)
-  const syncUserIdentity = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      setSbUser(user);
-
-      const { data: dbUser, error: dbErr } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', user.email)
-        .maybeSingle();
-
-      if (dbUser) {
-        setDbUserId(dbUser.id);
-      } else if (!dbErr) {
-        // Fallback registration handler if profile records are missing
-        const { data: newUser } = await supabase
-          .from('users')
-          .insert([{
-            email: user.email,
-            name: user.user_metadata?.full_name || user.email.split('@')[0],
-            role: 'customer'
-          }])
-          .select('id')
-          .maybeSingle();
-
-        if (newUser) setDbUserId(newUser.id);
-      }
-    } catch (err) {
-      console.error("Identity syncing error:", err);
-    }
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUser(user);
   };
 
   const fetchProduct = async () => {
     try {
       setLoading(true);
       const res = await api.get(`/products/${id}`);
+
       if (res.data) {
         setProduct(res.data);
         setStockQuantity(res.data.stockQuantity !== undefined ? res.data.stockQuantity : 10);
@@ -87,7 +57,6 @@ const ProductDetail = () => {
     try {
       setLoadingReviews(true);
       const res = await api.get(`/reviews/product/${id}`);
-      // Sort reviews descending by id natively
       const sortedReviews = (res.data || []).sort((a, b) => b.id - a.id);
       setReviews(sortedReviews);
     } catch (err) {
@@ -101,26 +70,21 @@ const ProductDetail = () => {
     e.preventDefault();
     if (rating === 0 || !reviewText.trim()) return;
 
-    if (!sbUser || !dbUserId) {
+    if (!currentUser) {
       window.showToast?.("Please login to submit a review.", "info");
       return;
     }
 
     try {
+      const currentUserName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+
       const reviewPayload = {
-        // Add these for standard Java DTO mapping
         productId: Number(id),
-        userId: Number(dbUserId),
-        userName: sbUser.user_metadata?.full_name || sbUser.email.split('@')[0],
-
-        // Keep these for direct database column matching 
-        product_id: Number(id),
-        user_id: Number(dbUserId),
-        user_name: sbUser.user_metadata?.full_name || sbUser.email.split('@')[0],
-
+        rating: Number(rating),
         comment: reviewText,
-        rating: Number(rating)
+        userName: currentUserName
       };
+
       await api.post(`/reviews/add/${id}`, reviewPayload);
 
       window.showToast?.("Review submitted successfully!", "success");
@@ -134,14 +98,17 @@ const ProductDetail = () => {
   };
 
   const handleDeleteReview = async (review) => {
-    if (!sbUser || !dbUserId) {
-      window.showToast?.("Please login to remove a review.", "info");
+    if (!currentUser) {
+      window.showToast?.("Please login to delete a review.", "info");
       return;
     }
 
-    // Explicitly check matching database bigint values instead of names
-    if (Number(dbUserId) !== Number(review.user_id)) {
-      window.showToast?.("Action unauthorized. You can only remove your own comments.", "error");
+    // Verify ownership on frontend side prior to network calls
+    const currentUserName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+    const reviewOwnerName = review.userName || review.user_name;
+
+    if (currentUserName !== reviewOwnerName) {
+      window.showToast?.("You can only delete your own reviews.", "error");
       return;
     }
 
@@ -156,20 +123,25 @@ const ProductDetail = () => {
   };
 
   const handleIncrement = () => {
-    if (quantity < stockQuantity) setQuantity(q => q + 1);
+    if (quantity < stockQuantity) {
+      setQuantity(q => q + 1);
+    }
   };
 
   const handleDecrement = () => {
-    if (quantity > 1) setQuantity(q => q - 1);
+    if (quantity > 1) {
+      setQuantity(q => q - 1);
+    }
   };
 
   const addToCart = async () => {
-    if (!sbUser) {
+    if (!currentUser) {
       window.showToast?.("Please login", "info");
       return;
     }
+
     try {
-      await addToCartLogic(sbUser, product.id, quantity);
+      await addToCartLogic(currentUser, product.id, quantity);
       window.showToast?.("Added to cart!", "success");
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (err) {
@@ -179,12 +151,42 @@ const ProductDetail = () => {
   };
 
   const addToWishlist = async () => {
-    if (!sbUser || !dbUserId) {
+    if (!currentUser) {
       window.showToast?.("Please login to add items to your wishlist.", "info");
       return;
     }
 
     try {
+      let dbUserId = null;
+      try {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', currentUser.email)
+          .maybeSingle();
+        if (dbUser) {
+          dbUserId = dbUser.id;
+        } else {
+          const { data: newUser } = await supabase
+            .from('users')
+            .insert([{
+              email: currentUser.email,
+              name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
+              role: 'customer'
+            }])
+            .select('id')
+            .maybeSingle();
+          dbUserId = newUser ? newUser.id : null;
+        }
+      } catch (dbErr) {
+        console.error("Error fetching/syncing dbUserId in ProductDetail:", dbErr);
+      }
+
+      if (!dbUserId) {
+        window.showToast?.("Could not sync your user account. Please try signing out and signing in again.", "error");
+        return;
+      }
+
       const { error } = await supabase
         .from('wishlist')
         .insert([{ user_id: dbUserId, product_id: product.id }]);
@@ -193,6 +195,7 @@ const ProductDetail = () => {
         if (error.code === '23505') {
           window.showToast?.("This item is already in your wishlist!", "warning");
         } else {
+          console.error("Error adding to wishlist:", error);
           window.showToast?.("Could not add to wishlist. Error: " + error.message, "error");
         }
       } else {
@@ -201,7 +204,7 @@ const ProductDetail = () => {
       }
     } catch (err) {
       console.error(err);
-      window.showToast?.("Could not add to wishlist.", "error");
+      window.showToast?.("Could not add to wishlist. Error: " + (err.message || "Unknown error"), "error");
     }
   };
 
@@ -257,7 +260,7 @@ const ProductDetail = () => {
               )}
             </div>
 
-            {/* Stock Validation */}
+            {/* Stock Validation UI */}
             <div className="mb-6">
               {stockQuantity === 0 ? (
                 <div className="flex items-center text-red-500 bg-red-50 w-fit px-3 py-1.5 rounded-lg border border-red-100">
@@ -278,7 +281,7 @@ const ProductDetail = () => {
             </div>
 
             <p className="text-slate-600 mb-8 leading-relaxed text-lg">
-              {product.description || 'Experience unparalleled quality with this premium product.'}
+              {product.description || 'Experience unparalleled quality with this premium product. Designed for comfort and built for durability, it is your perfect companion.'}
             </p>
 
             <div className="flex items-center space-x-4 mb-10">
@@ -286,13 +289,13 @@ const ProductDetail = () => {
                 <button
                   onClick={handleDecrement}
                   disabled={stockQuantity === 0 || quantity <= 1}
-                  className="px-5 py-3 text-slate-600 hover:text-slate-900 font-bold text-xl transition-colors"
+                  className="px-5 py-3 text-slate-600 hover:text-slate-900 font-bold text-xl transition-colors disabled:cursor-not-allowed"
                 >-</button>
                 <span className="px-4 font-bold text-slate-900 text-lg">{stockQuantity === 0 ? 0 : quantity}</span>
                 <button
                   onClick={handleIncrement}
                   disabled={stockQuantity === 0 || quantity >= stockQuantity}
-                  className="px-5 py-3 text-slate-600 hover:text-slate-900 font-bold text-xl transition-colors"
+                  className="px-5 py-3 text-slate-600 hover:text-slate-900 font-bold text-xl transition-colors disabled:cursor-not-allowed"
                 >+</button>
               </div>
               <button
@@ -328,11 +331,11 @@ const ProductDetail = () => {
         </div>
       </div>
 
-      {/* Reviews Content Area */}
+      {/* Customer Reviews Section */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 md:p-12 mt-8">
         <div className="flex flex-col lg:flex-row gap-12">
 
-          {/* Form Box */}
+          {/* Write a Review Form */}
           <div className="lg:w-1/3">
             <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
               <MessageSquare className="text-orange-500 w-6 h-6" /> Write a Review
@@ -344,7 +347,8 @@ const ProductDetail = () => {
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      className={`w-9 h-9 cursor-pointer transition-all hover:scale-110 ${(hoverRating || rating) >= star ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
+                      className={`w-9 h-9 cursor-pointer transition-all hover:scale-110 ${(hoverRating || rating) >= star ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                        }`}
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(0)}
                       onClick={() => setRating(star)}
@@ -365,14 +369,14 @@ const ProductDetail = () => {
               <button
                 type="submit"
                 disabled={rating === 0 || !reviewText.trim()}
-                className="w-full bg-slate-900 hover:bg-orange-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-slate-900 hover:bg-orange-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:shadow-orange-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-900 disabled:hover:shadow-none active:scale-95"
               >
                 Submit Review
               </button>
             </form>
           </div>
 
-          {/* Review Stream List */}
+          {/* Review List */}
           <div className="lg:w-2/3">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold text-slate-900">Customer Reviews ({reviews.length})</h2>
@@ -392,11 +396,11 @@ const ProductDetail = () => {
                 <div className="text-slate-400 italic py-4">No reviews yet for this product. Be the first to write one!</div>
               ) : (
                 reviews.map((review) => {
-                  const reviewDisplayName = review.user_name || review.userName || 'Anonymous';
-                  const isOwner = dbUserId && Number(dbUserId) === Number(review.user_id);
+                  const reviewDisplayName = review.userName || review.user_name || 'Anonymous';
+                  const isOwner = currentUser && (currentUser.user_metadata?.full_name || currentUser.email.split('@')[0]) === (review.userName || review.user_name);
 
                   return (
-                    <div key={review.id} className="border-b border-slate-100 pb-6 last:border-0 last:pb-0">
+                    <div key={review.id} className="border-b border-slate-100 pb-6 last:border-0 last:pb-0 animate-in fade-in slide-in-from-bottom-2">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500 uppercase">
@@ -414,6 +418,7 @@ const ProductDetail = () => {
                         <div className="flex items-center gap-3">
                           <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">Verified Purchase</span>
 
+                          {/* Only show delete button if current user owns the review */}
                           {isOwner && (
                             <button
                               onClick={() => handleDeleteReview(review)}
@@ -425,7 +430,7 @@ const ProductDetail = () => {
                           )}
                         </div>
                       </div>
-                      <p className="text-slate-600 mt-4 leading-relaxed">{review.comment}</p>
+                      <p className="text-slate-600 mt-4 leading-relaxed pl-13 md:pl-0">{review.comment}</p>
                     </div>
                   );
                 })

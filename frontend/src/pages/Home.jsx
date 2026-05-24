@@ -294,11 +294,20 @@ const Home = () => {
                         <Link to={`/product/${item.id}`} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden group/card border border-slate-100 flex flex-col h-[420px] transform hover:-translate-y-1 block">
                           <div className="h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
                             <div className="w-full h-full bg-white rounded-xl flex items-center justify-center transition-transform duration-500 group-hover/card:scale-105 overflow-hidden">
-                              {item.imageUrl ? (
-                                <img src={item.imageUrl?.startsWith('http') || item.imageUrl?.startsWith('/') ? item.imageUrl : '/' + item.imageUrl} alt={item.name} className="object-contain h-full w-full" />
-                              ) : (
-                                <span className="text-slate-400 font-medium text-sm">No Image</span>
-                              )}
+                              <img
+                                src={
+                                  item.imageUrl || item.image_url
+                                    ? ((item.imageUrl || item.image_url).startsWith('http') ? (item.imageUrl || item.image_url) : '/' + (item.imageUrl || item.image_url))
+                                    : 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'
+                                }
+                                alt={item.name}
+                                className="object-contain h-full w-full"
+                                onError={(e) => {
+                                  // If a database path is broken, fallback to a clean placeholder instead of crashing
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+                                }}
+                              />
                             </div>
                             {item.discount && (
                               <div className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
