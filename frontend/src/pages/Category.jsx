@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ShoppingCart, Filter, ChevronDown, Heart } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { addToCartLogic } from '../services/cartService';
+import api from '../services/api';
 
 const Category = () => {
   const { categoryName } = useParams();
@@ -24,11 +25,8 @@ const Category = () => {
       setLoading(true);
       
       // Fetch all products first to do flexible filtering
-      const { data, error } = await supabase
-        .from('product') // Using user's 'product' table
-        .select('*');
-      
-      if (error) throw error;
+      const res = await api.get('/products');
+      const data = res.data;
       
       if (data) {
         const target = displayTitle.toLowerCase();
@@ -206,8 +204,8 @@ const Category = () => {
               <Link to={`/product/${item.id}`} key={item.id} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-slate-100 flex flex-col h-[420px] transform hover:-translate-y-1 block">
                 <div className="h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
                    <div className="w-full h-full bg-white rounded-xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105 overflow-hidden">
-                       {item.image_url ? (
-                         <img src={item.image_url} alt={item.name} className="object-contain h-full w-full" />
+                       {item.imageUrl ? (
+                         <img src={item.imageUrl?.startsWith('http') || item.imageUrl?.startsWith('/') ? item.imageUrl : '/' + item.imageUrl} alt={item.name} className="object-contain h-full w-full" />
                        ) : (
                          <span className="text-slate-400 font-medium text-sm">No Image</span>
                        )}

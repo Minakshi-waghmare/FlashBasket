@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, ArrowRight, ShoppingBag } from 'lucide-react';
+import { Trash2, ShoppingBag, Plus, Minus, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
+import api from '../services/api';
+import { getDbUserId } from '../services/userService';
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
@@ -16,325 +18,216 @@ const Cart = () => {
   const checkUserAndFetchCart = async () => {
     try {
       setLoading(true);
+
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
-      if (user) {
-        // Fetch or create public DB user record to get the bigint user_id
-        let dbUserId = null;
-        try {
-          const { data: dbUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('email', user.email)
-            .maybeSingle();
+      if (!user) return;
 
-          if (!dbUser) {
-            const { data: newUser } = await supabase
-              .from('users')
-              .insert([{
-                email: user.email,
-                name: user.user_metadata?.full_name || user.email.split('@')[0],
-                role: 'customer'
-              }])
-              .select('id')
-              .maybeSingle();
-            dbUserId = newUser ? newUser.id : null;
-          } else {
-            dbUserId = dbUser.id;
-          }
-        } catch (dbErr) {
-          console.error("Error fetching/syncing public DB user in Cart:", dbErr);
-        }
+      const dbUserId = await getDbUserId(user);
+      const parsedUserId = Number(dbUserId);
 
-        // Fetch cart for this user using bigint id
-        let cartQuery = supabase.from('carts').select('id');
-        if (dbUserId) {
-          cartQuery = cartQuery.eq('user_id', dbUserId);
-        } else {
-          cartQuery = cartQuery.eq('user_id', 0);
-        }
-        let { data: userCarts, error: cartError } = await cartQuery;
+      const res = await api.get(`/cart/${parsedUserId}`);
 
-        if (cartError) throw cartError;
+      const mappedCart = (res.data || []).map(item => ({
+        cartItemId: item.id,
+        productId: item.productId,
+        name: item.productName,
+        price: item.price,
+        imageUrl: item.imageUrl,
+        quantity: item.quantity
+      }));
 
-        let cartId = userCarts && userCarts.length > 0 ? userCarts[0].id : null;
-        
-        if (!cartId) {
-            const { data: newCart, error: newCartError } = await supabase
-              .from('carts')
-              .insert([{ user_id: dbUserId || 0 }])
-              .select();
-            if (newCartError) throw newCartError;
-            cartId = newCart[0].id;
-        }
+      setCartItems(mappedCart);
 
-        const { data: cartData, error: itemsError } = await supabase
-          .from('cart_items')
-          .select('id, product_id, quantity')
-          .eq('cart_id', cartId);
-
-        if (itemsError) throw itemsError;
-
-        if (cartError) throw cartError;
-
-        if (cartData && cartData.length > 0) {
-          const productIds = cartData.map(item => item.product_id);
-
-          // Fetch the product details
-          const { data: productsData, error: productsError } = await supabase
-            .from('product')
-            .select('*')
-            .in('id', productIds);
-
-          if (productsError) throw productsError;
-
-          // Merge product details with cart quantity
-          const mergedCart = cartData.map(cartItem => {
-            const product = productsData.find(p => p.id === cartItem.product_id);
-            return {
-              ...product,
-              cartItemId: cartItem.id, // Primary key of the cart table
-              quantity: cartItem.quantity
-            };
-          }).filter(item => item.name); // Filter out any items where product wasn't found
-
-          setCartItems(mergedCart);
-        } else {
-          setCartItems([]);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching cart:", error);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateQuantity = async (cartItemId, newQuantity) => {
-    if (newQuantity < 1) return;
-    
-    // Optimistic UI update
-    setCartItems(prev => prev.map(item => 
-      item.cartItemId === cartItemId ? { ...item, quantity: newQuantity } : item
-    ));
+  const updateQuantity = async (id, qty) => {
+    if (qty < 1) return;
 
-    try {
-      const { error } = await supabase
-        .from('cart_items')
-        .update({ quantity: newQuantity })
-        .eq('id', cartItemId);
+    setCartItems(prev =>
+      prev.map(i =>
+        i.cartItemId === id ? { ...i, quantity: qty } : i
+      )
+    );
 
-      if (error) {
-        console.error("Error updating quantity:", error);
-        checkUserAndFetchCart(); // Revert on failure
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    await api.put(`/cart/update/${id}?quantity=${qty}`);
   };
 
-  const removeFromCart = async (cartItemId) => {
-    // Optimistic update
-    setCartItems(prev => prev.filter(item => item.cartItemId !== cartItemId));
-    
-    try {
-      const { error } = await supabase
-        .from('cart_items')
-        .delete()
-        .eq('id', cartItemId);
-        
-      if (error) {
-        console.error("Error removing from cart:", error);
-        checkUserAndFetchCart(); // Revert on failure
-      } else {
-        window.dispatchEvent(new Event('cartUpdated'));
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  const removeFromCart = async (id) => {
+    setCartItems(prev => prev.filter(i => i.cartItemId !== id));
+    await api.delete(`/cart/remove/${id}`);
   };
 
-  const clearCart = async () => {
-    if (!user) return;
-    
-    setCartItems([]); // Optimistic
-    
-    try {
-      // Fetch public DB user record to get the bigint user_id
-      let dbUserId = null;
-      try {
-        const { data: dbUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', user.email)
-          .maybeSingle();
-        if (dbUser) dbUserId = dbUser.id;
-      } catch (dbErr) {
-        console.error("Error fetching dbUser for clearCart:", dbErr);
-      }
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
-      // First find cart_id using bigint id
-      let cartQuery = supabase.from('carts').select('id');
-      if (dbUserId) {
-        cartQuery = cartQuery.eq('user_id', dbUserId);
-      } else {
-        cartQuery = cartQuery.eq('user_id', 0);
-      }
-      const { data: userCarts } = await cartQuery;
-
-      if (userCarts && userCarts.length > 0) {
-        const { error } = await supabase
-          .from('cart_items')
-          .delete()
-          .eq('cart_id', userCarts[0].id);
-          
-        if (error) {
-          console.error("Error clearing cart:", error);
-          checkUserAndFetchCart(); // Revert
-        } else {
-          window.dispatchEvent(new Event('cartUpdated'));
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const tax = Math.round(subtotal * 0.05);
+  const total = subtotal + tax;
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h2 className="text-2xl font-bold text-slate-500">Loading your cart...</h2>
+      <div className="h-screen flex items-center justify-center text-slate-500 font-semibold">
+        Loading your cart...
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center bg-white rounded-3xl shadow-sm border border-slate-100 my-12">
-        <h2 className="text-3xl font-bold text-slate-900 mb-4">Please Log In</h2>
-        <p className="text-lg text-slate-500 mb-8">You need to be logged in to view your shopping cart.</p>
-        <button 
+      <div className="h-screen flex flex-col items-center justify-center">
+        <h1 className="text-2xl font-bold mb-4">Login Required</h1>
+        <button
           onClick={() => navigate('/login')}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-xl transition-colors"
+          className="bg-orange-500 text-white px-6 py-3 rounded-xl"
         >
-          Login to Continue
+          Login
         </button>
       </div>
     );
   }
 
-  // Calculate totals dynamically
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const tax = Math.round(subtotal * 0.05); // Assume 5% tax
-  const total = subtotal + tax;
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="text-3xl font-extrabold text-slate-900 mb-8">Shopping Cart</h1>
-      
+    <div className="max-w-6xl mx-auto px-4 py-10">
+
+      {/* HEADER */}
+      <h1 className="text-3xl font-extrabold mb-8">
+        Your Shopping Cart 🛒
+      </h1>
+
+      {/* EMPTY CART (VERY IMPORTANT UPGRADE) */}
       {cartItems.length === 0 ? (
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-12 text-center">
-          <div className="flex justify-center mb-6">
-             <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center">
-                <ShoppingBag className="h-10 w-10 text-slate-400" />
-             </div>
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Your cart is empty</h2>
-          <p className="text-slate-500 mb-8">Looks like you haven't added anything to your cart yet.</p>
-          <Link to="/" className="bg-slate-900 hover:bg-orange-500 text-white font-bold py-3 px-8 rounded-xl transition-colors inline-block">
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl shadow-sm border">
+          <ShoppingBag className="w-14 h-14 text-slate-300 mb-4" />
+          <h2 className="text-xl font-bold text-slate-700">
+            Your cart feels empty
+          </h2>
+          <p className="text-slate-500 mt-1">
+            Add something amazing to get started
+          </p>
+
+          <Link
+            to="/products"
+            className="mt-6 bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold"
+          >
             Start Shopping
           </Link>
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-8">
-          <div className="lg:w-2/3">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <span className="font-bold text-slate-800">{cartItems.length} {cartItems.length === 1 ? 'Item' : 'Items'}</span>
-                <button onClick={clearCart} className="text-sm text-red-500 font-semibold hover:text-red-600 transition-colors px-4 py-2 hover:bg-red-50 rounded-lg">Clear Cart</button>
-              </div>
-              
-              <div className="divide-y divide-slate-100">
-                {cartItems.map((item) => (
-                  <div key={item.cartItemId} className="p-6 flex flex-col sm:flex-row items-center gap-6 hover:bg-slate-50 transition-colors">
-                    <Link to={`/product/${item.id}`} className="w-24 h-24 bg-white border border-slate-100 rounded-xl flex-shrink-0 flex items-center justify-center p-2 overflow-hidden hover:shadow-md transition-shadow">
-                       {item.image_url ? (
-                         <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
-                       ) : (
-                         <span className="text-xs text-slate-400">No Image</span>
-                       )}
-                    </Link>
-                    
-                    <div className="flex-grow text-center sm:text-left">
-                      <Link to={`/product/${item.id}`}>
-                        <h3 className="text-lg font-bold text-slate-800 mb-1 hover:text-orange-500 transition-colors line-clamp-2">{item.name}</h3>
-                      </Link>
-                      <p className="text-xs text-orange-500 font-bold mb-2 uppercase tracking-wider">{item.category}</p>
-                      <span className="font-bold text-slate-900 text-xl">₹{item.price}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 mt-4 sm:mt-0">
-                      <div className="flex items-center border-2 border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm">
-                        <button 
-                          onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
-                          className="px-3 py-2 text-slate-600 hover:text-orange-500 hover:bg-orange-50 font-bold transition-colors"
-                        >
-                          -
-                        </button>
-                        <span className="px-4 font-bold text-slate-900 border-x-2 border-slate-100">{item.quantity}</span>
-                        <button 
-                          onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
-                          className="px-3 py-2 text-slate-600 hover:text-orange-500 hover:bg-orange-50 font-bold transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button 
-                        onClick={() => removeFromCart(item.cartItemId)}
-                        className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                        title="Remove item"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+          {/* LEFT: PRODUCT CARDS */}
+          <div className="lg:col-span-2 space-y-5">
+
+            {cartItems.map(item => (
+              <div
+                key={item.cartItemId}
+                className="flex gap-5 bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition"
+              >
+
+                {/* IMAGE */}
+                <div className="w-28 h-28 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center">
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      className="w-full h-full object-cover"
+                      alt={item.name}
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400">No Image</span>
+                  )}
+                </div>
+
+                {/* DETAILS */}
+                <div className="flex-1 flex flex-col justify-between">
+
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      {item.name}
+                    </h2>
+
+                    <p className="text-orange-600 font-bold text-lg mt-1">
+                      ₹{item.price}
+                    </p>
                   </div>
-                ))}
+
+                  {/* CONTROLS */}
+                  <div className="flex items-center justify-between mt-4">
+
+                    {/* QUANTITY */}
+                    <div className="flex items-center gap-3 bg-slate-100 px-3 py-1 rounded-xl">
+
+                      <button onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}>
+                        <Minus size={16} />
+                      </button>
+
+                      <span className="font-semibold">{item.quantity}</span>
+
+                      <button onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}>
+                        <Plus size={16} />
+                      </button>
+
+                    </div>
+
+                    {/* DELETE */}
+                    <button
+                      onClick={() => removeFromCart(item.cartItemId)}
+                      className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+
+                  </div>
+
+                </div>
               </div>
-            </div>
+            ))}
+
           </div>
-          
-          <div className="lg:w-1/3">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 sticky top-24">
-              <h2 className="text-2xl font-bold text-slate-900 mb-6">Order Summary</h2>
-              
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between text-slate-600 text-lg">
-                  <span>Subtotal</span>
-                  <span className="font-bold text-slate-900">₹{subtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-slate-600 text-lg">
-                  <span>Shipping</span>
-                  <span className="font-bold text-green-500 tracking-wide">FREE</span>
-                </div>
-                <div className="flex justify-between text-slate-600 text-lg">
-                  <span>Estimated Tax</span>
-                  <span className="font-bold text-slate-900">₹{tax.toLocaleString()}</span>
-                </div>
-                <div className="pt-6 mt-6 border-t border-slate-200 flex justify-between items-center">
-                  <span className="text-xl font-bold text-slate-900">Total</span>
-                  <span className="text-3xl font-black text-orange-500">₹{total.toLocaleString()}</span>
-                </div>
+
+          {/* RIGHT: SUMMARY CARD */}
+          <div className="bg-white border rounded-2xl p-6 h-fit shadow-sm sticky top-10">
+
+            <h2 className="text-xl font-bold mb-5">
+              Order Summary
+            </h2>
+
+            <div className="space-y-3 text-slate-600">
+
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>₹{subtotal}</span>
               </div>
-              
-              <Link to="/checkout" className="w-full bg-slate-900 hover:bg-orange-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-orange-500/30 transform hover:-translate-y-1 transition-all flex items-center justify-center text-lg mb-4">
-                Proceed to Checkout <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-              <Link to="/" className="w-full block text-center text-slate-500 hover:text-slate-800 font-semibold transition-colors py-2">
-                Continue Shopping
-              </Link>
+
+              <div className="flex justify-between">
+                <span>Tax (5%)</span>
+                <span>₹{tax}</span>
+              </div>
+
             </div>
+
+            <div className="border-t mt-4 pt-4 flex justify-between font-bold text-lg">
+              <span>Total</span>
+              <span>₹{total}</span>
+            </div>
+
+            <Link
+              to="/checkout"
+              className="mt-6 flex items-center justify-center gap-2 bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600"
+            >
+              Checkout <ArrowRight size={18} />
+            </Link>
+
           </div>
+
         </div>
       )}
     </div>

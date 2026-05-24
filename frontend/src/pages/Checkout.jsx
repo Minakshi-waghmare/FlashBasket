@@ -667,8 +667,8 @@ const Checkout = () => {
                 cartItems.map((item) => (
                   <div key={item.id} className="flex gap-4 items-center">
                     <div className="w-16 h-16 bg-white border border-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center p-1 overflow-hidden">
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl?.startsWith('http') || item.imageUrl?.startsWith('/') ? item.imageUrl : '/' + item.imageUrl} alt={item.name} className="w-full h-full object-contain" />
                       ) : (
                         <span className="text-[10px] text-slate-400">No Img</span>
                       )}

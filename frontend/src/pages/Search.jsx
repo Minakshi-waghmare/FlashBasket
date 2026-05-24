@@ -77,8 +77,8 @@ const Search = () => {
             <Link to={`/product/${item.id}`} key={item.id} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-slate-100 flex flex-col h-full transform hover:-translate-y-1 block">
               <div className="h-64 bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
                  <div className="w-full h-full bg-white rounded-xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105 overflow-hidden">
-                     {item.image_url ? (
-                       <img src={item.image_url} alt={item.name} className="object-contain h-full w-full" />
+                     {item.imageUrl ? (
+                       <img src={item.imageUrl?.startsWith('http') || item.imageUrl?.startsWith('/') ? item.imageUrl : '/' + item.imageUrl} alt={item.name} className="object-contain h-full w-full" />
                      ) : (
                        <span className="text-slate-400 font-medium text-sm">No Image</span>
                      )}
