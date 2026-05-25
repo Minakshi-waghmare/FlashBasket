@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Phone, Mail, Clock, Send, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import api from '../services/api';
 
 const Contact = () => {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
@@ -28,24 +29,17 @@ const Contact = () => {
     setError(null);
     
     try {
-      // Insert message into the 'messages' table in Supabase
-      const { error: submitError } = await supabase
-        .from('messages')
-        .insert([
-          { 
-            name: formData.name, 
-            email: formData.email, 
-            subject: formData.subject, 
-            message: formData.message 
-          }
-        ]);
+      // Send only the fields your backend expects!
+      await api.post('/contact', {
+        name: formData.name,
+        email: formData.email,
+        message: formData.message
+      });
         
-      if (submitError) throw submitError;
-      
       setIsSubmitted(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
     } catch (err) {
-      console.error("Error submitting message:", err);
+      console.error("Error submitting message through backend:", err);
       setError("Something went wrong. Please try again later.");
     } finally {
       setIsSubmitting(false);
