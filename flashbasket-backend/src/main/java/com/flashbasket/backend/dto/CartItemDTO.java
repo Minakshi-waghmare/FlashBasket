@@ -5,12 +5,20 @@ public class CartItemDTO {
     private Long id;
     private Long userId;
     private Long productId;
-
+    private String imageUrl;
     private String productName;
     private double price;
     private Integer quantity;
 
     public CartItemDTO() {
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     // 🔹 ID

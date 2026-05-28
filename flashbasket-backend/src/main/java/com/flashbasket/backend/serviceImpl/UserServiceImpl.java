@@ -99,4 +99,18 @@ public class UserServiceImpl implements UserService {
 
         return response;
     }
+
+    // 📧 Get User by Email
+    @Override
+    public UserDTO getUserByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+
+        UserDTO dto = new UserDTO();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+
+        return dto;
+    }
 }

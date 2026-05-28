@@ -11,14 +11,24 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/cart")
 @RequiredArgsConstructor
-@CrossOrigin("*")
+@CrossOrigin
 public class CartController {
 
     private final CartService cartService;
 
     @PostMapping("/add")
     public ResponseEntity<CartItemDTO> addToCart(@RequestBody CartItemDTO dto) {
-        return ResponseEntity.ok(cartService.addToCart(dto));
+
+        System.out.println("🛒 Cart Request: " + dto);
+
+        try {
+            CartItemDTO response = cartService.addToCart(dto);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace(); // 🔥 IMPORTANT FOR DEBUGGING
+            throw e;
+        }
     }
 
     @GetMapping("/{userId}")
@@ -30,6 +40,7 @@ public class CartController {
     public ResponseEntity<CartItemDTO> updateQuantity(
             @PathVariable Long cartItemId,
             @RequestParam Integer quantity) {
+
         return ResponseEntity.ok(cartService.updateQuantity(cartItemId, quantity));
     }
 

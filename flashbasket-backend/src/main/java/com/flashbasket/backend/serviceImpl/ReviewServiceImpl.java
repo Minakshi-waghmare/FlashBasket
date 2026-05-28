@@ -21,15 +21,16 @@ public class ReviewServiceImpl implements ReviewService {
     public Review addReview(Long productId, Review review) {
 
         boolean exists = reviewRepository
-                .existsByProductIdAndUserName(productId, review.getUserName());
+                .existsByProductIdAndUserId(productId, review.getUserId());
 
         if (exists) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "User has already reviewed this product");
+                    "You already reviewed this product");
         }
 
         review.setProductId(productId);
+
         return reviewRepository.save(review);
     }
 

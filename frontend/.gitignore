@@ -1,0 +1,92 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+# =========================
+# FRONTEND (React / Vite)
+# =========================
+
+node_modules/
+dist/
+.vite/
+
+# Environment variables
+.env
+*.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# BACKEND (Spring Boot)
+# =========================
+
+target/
+build/
+
+# Ignore secret configs
+application.properties
+application.yml
+
+# Keep example config
+!application-example.properties
+
+# Maven wrapper
+!.mvn/wrapper/maven-wrapper.jar
+
+# =========================
+# JAVA
+# =========================
+
+*.class
+*.log
+*.ctxt
+
+# Package files
+*.jar
+*.war
+*.nar
+*.ear
+
+# Crash logs
+hs_err_pid*
+replay_pid*
+
+# =========================
+# IDE FILES
+# =========================
+
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# =========================
+# OS FILES
+# =========================
+
+.DS_Store
+Thumbs.db
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
