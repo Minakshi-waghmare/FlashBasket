@@ -3,6 +3,7 @@ package com.flashbasket.backend.model;
 import jakarta.persistence.*;
 
 @Entity
+@Table(name = "review")
 public class Review {
 
     @Id
@@ -10,27 +11,19 @@ public class Review {
     private Long id;
 
     private String comment;
-    private int rating;
+    private Integer rating;
 
+    // Force Hibernate to read/write snake_case properties
+    @Column(name = "product_id")
     private Long productId;
 
+    @Column(name = "user_name")
     private String userName;
 
-    // 🔹 Default constructor
-    public Review() {
-    }
+    @Column(name = "user_id")
+    private Long userId;
 
-    // 🔹 Parameterized constructor (optional but useful)
-    public Review(Long id, String comment, int rating, Long productId, String userName) {
-        this.id = id;
-        this.comment = comment;
-        this.rating = rating;
-        this.productId = productId;
-        this.userName = userName;
-    }
-
-    // 🔹 Getters and Setters
-
+    // Standard Getters and Setters
     public Long getId() {
         return id;
     }
@@ -47,11 +40,11 @@ public class Review {
         this.comment = comment;
     }
 
-    public int getRating() {
+    public Integer getRating() {
         return rating;
     }
 
-    public void setRating(int rating) {
+    public void setRating(Integer rating) {
         this.rating = rating;
     }
 
@@ -69,5 +62,13 @@ public class Review {
 
     public void setUserName(String userName) {
         this.userName = userName;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }

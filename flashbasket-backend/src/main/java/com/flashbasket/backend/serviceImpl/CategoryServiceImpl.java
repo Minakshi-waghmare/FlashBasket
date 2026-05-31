@@ -7,7 +7,8 @@ import com.flashbasket.backend.model.Category;
 import com.flashbasket.backend.repository.CategoryRepository;
 import com.flashbasket.backend.service.CategoryService;
 import org.springframework.stereotype.Service;
-
+import com.flashbasket.backend.dto.ProductDTO;
+import com.flashbasket.backend.mapper.ProductMapper;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -15,6 +16,19 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+
+    @Override
+    public List<ProductDTO> getProductsByCategoryName(String name) {
+        // 1. Fetch the category object using the query method you already made
+        Category category = categoryRepository.findByNameIgnoreCase(name)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with name: " + name));
+
+        // 2. Simply pull the attached products array and convert them to DTOs!
+        return category.getProducts()
+                .stream()
+                .map(ProductMapper::toDTO)
+                .collect(Collectors.toList());
+    }
 
     // Constructor Injection (BEST PRACTICE)
     public CategoryServiceImpl(CategoryRepository categoryRepository) {
@@ -61,7 +75,6 @@ public class CategoryServiceImpl implements CategoryService {
     // 🔥 Reusable private method (clean code improvement)
     private Category findCategoryById(Long id) {
         return categoryRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Category not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
     }
 }

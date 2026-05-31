@@ -25,6 +25,17 @@ public class CategoryController {
         return categoryService.getCategoryById(id);
     }
 
+    @GetMapping("/name/{categoryName}/products")
+    public List<com.flashbasket.backend.dto.ProductDTO> getCategoryProducts(@PathVariable String categoryName) {
+        // Standardizes incoming url paths (e.g., 'home-kitchen' -> 'Home & Kitchen')
+        String cleanName = categoryName.replace("-", " ");
+        if (categoryName.equalsIgnoreCase("home-kitchen")) {
+            cleanName = "Home & Kitchen";
+        }
+
+        return categoryService.getProductsByCategoryName(cleanName);
+    }
+
     @GetMapping
     public List<CategoryDTO> getAllCategories() {
         return categoryService.getAllCategories();
@@ -32,7 +43,7 @@ public class CategoryController {
 
     @PutMapping("/{id}")
     public CategoryDTO updateCategory(@PathVariable Long id,
-                                     @RequestBody CategoryDTO dto) {
+            @RequestBody CategoryDTO dto) {
         return categoryService.updateCategory(id, dto);
     }
 

@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/address")
-@CrossOrigin
+@CrossOrigin(origins = "http://localhost:5173")
 public class AddressController {
 
     @Autowired
@@ -30,7 +30,7 @@ public class AddressController {
     // Update address
     @PutMapping("/{addressId}")
     public AddressDTO updateAddress(@PathVariable Long addressId,
-                                    @RequestBody AddressDTO addressDTO) {
+            @RequestBody AddressDTO addressDTO) {
         return addressService.updateAddress(addressId, addressDTO);
     }
 
