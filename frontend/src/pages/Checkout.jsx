@@ -90,6 +90,7 @@ const Checkout = () => {
           const product = productsData.find(p => p.id === cartItem.product_id);
           return {
             ...product,
+            imageUrl: product.image_url || product.imageUrl,
             cartItemId: cartItem.id,
             quantity: cartItem.quantity
           };
@@ -348,7 +349,14 @@ const Checkout = () => {
 
         // Clear cart in Supabase
         await clearUserCart(dbUserId);
-        navigate('/order-success');
+        navigate('/order-success', {
+          state: {
+            orderId: createdOrderId,
+            items: cartItems,
+            paymentMethod: 'Cash on Delivery',
+            total: orderTotal
+          }
+        });
       } else {
         // Razorpay payment (for 'card' or 'upi')
         if (!window.Razorpay) {
@@ -356,14 +364,7 @@ const Checkout = () => {
         }
 
         if (!backendSuccess) {
-          // If backend is offline, simulate a friendly successful payment flow
-          if (window.showToast) {
-            window.showToast("Backend server is offline! Simulating successful payment flow...", "warning");
-          }
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          await clearUserCart(dbUserId);
-          navigate('/order-success');
-          return;
+          throw new Error("Cannot process UPI/Card payment because backend order placement failed. Please try again.");
         }
 
         let razorpayOrderRes;
@@ -373,17 +374,26 @@ const Checkout = () => {
             amount: orderTotal
           });
         } catch (rzpErr) {
-          console.error("Failed to create Razorpay order:", rzpErr);
-          throw new Error("Could not initialize Razorpay payment. Please ensure the backend server is running.");
+          console.error("Failed to create Razorpay order full error:", rzpErr.response?.data || rzpErr);
+          const backendMsg = rzpErr.response?.data?.message || rzpErr.response?.data;
+          const msgString = typeof backendMsg === 'string' ? backendMsg : JSON.stringify(backendMsg || 'Unknown error');
+          throw new Error("Backend Razorpay Error: " + msgString);
         }
 
         const options = {
           key: razorpayOrderRes.data.key || import.meta.env.VITE_RAZORPAY_KEY_ID || '',
-          amount: razorpayOrderRes.data.amount * 100, // paise
+          amount: razorpayOrderRes.data.amount * 100,
           currency: razorpayOrderRes.data.currency,
           name: 'FlashBasket',
           description: 'Payment for Order #' + createdOrderId,
           order_id: razorpayOrderRes.data.razorpayOrderId,
+
+          method: {
+            upi: true,
+            card: true,
+            netbanking: true,
+            wallet: true
+          },
           handler: async function (response) {
             try {
               setIsProcessing(true);
@@ -398,7 +408,14 @@ const Checkout = () => {
 
               // Clear cart items in Supabase upon successful payment
               await clearUserCart(dbUserId);
-              navigate('/order-success');
+              navigate('/order-success', {
+                state: {
+                  orderId: createdOrderId,
+                  items: cartItems,
+                  paymentMethod: selectedPayment === 'upi' ? 'UPI' : 'Credit / Debit Card',
+                  total: orderTotal
+                }
+              });
             } catch (verifyErr) {
               console.error("Verification failed:", verifyErr);
               window.showToast?.("Payment verification failed. Please check the backend console.", "error");
@@ -480,8 +497,8 @@ const Checkout = () => {
                     key={addr.id}
                     onClick={() => setSelectedAddress(addr.id)}
                     className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 ${selectedAddress === addr.id
-                        ? 'border-orange-500 bg-orange-50/50 shadow-sm'
-                        : 'border-slate-100 hover:border-orange-300 bg-white'
+                      ? 'border-orange-500 bg-orange-50/50 shadow-sm'
+                      : 'border-slate-100 hover:border-orange-300 bg-white'
                       }`}
                   >
                     <div className="flex justify-between items-start mb-3">
@@ -586,8 +603,8 @@ const Checkout = () => {
               <div
                 onClick={() => setSelectedPayment('cod')}
                 className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${selectedPayment === 'cod'
-                    ? 'border-orange-500 bg-orange-50/50 shadow-sm'
-                    : 'border-slate-100 hover:border-orange-300 bg-white'
+                  ? 'border-orange-500 bg-orange-50/50 shadow-sm'
+                  : 'border-slate-100 hover:border-orange-300 bg-white'
                   }`}
               >
                 <div className="relative">
@@ -603,8 +620,8 @@ const Checkout = () => {
               <div
                 onClick={() => setSelectedPayment('upi')}
                 className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${selectedPayment === 'upi'
-                    ? 'border-orange-500 bg-orange-50/50 shadow-sm'
-                    : 'border-slate-100 hover:border-orange-300 bg-white'
+                  ? 'border-orange-500 bg-orange-50/50 shadow-sm'
+                  : 'border-slate-100 hover:border-orange-300 bg-white'
                   }`}
               >
                 <div className="relative">
@@ -620,8 +637,8 @@ const Checkout = () => {
               <div
                 onClick={() => setSelectedPayment('card')}
                 className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center ${selectedPayment === 'card'
-                    ? 'border-orange-500 bg-orange-50/50 shadow-sm'
-                    : 'border-slate-100 hover:border-orange-300 bg-white'
+                  ? 'border-orange-500 bg-orange-50/50 shadow-sm'
+                  : 'border-slate-100 hover:border-orange-300 bg-white'
                   }`}
               >
                 <div className="relative">
@@ -710,8 +727,8 @@ const Checkout = () => {
               onClick={handlePlaceOrder}
               disabled={isProcessing || loadingCart || cartItems.length === 0}
               className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transform transition-all flex items-center justify-center text-lg ${isProcessing || loadingCart || cartItems.length === 0
-                  ? 'bg-slate-400 cursor-not-allowed'
-                  : 'bg-emerald-500 hover:bg-emerald-600 hover:shadow-emerald-500/30 hover:-translate-y-1'
+                ? 'bg-slate-400 cursor-not-allowed'
+                : 'bg-emerald-500 hover:bg-emerald-600 hover:shadow-emerald-500/30 hover:-translate-y-1'
                 }`}
             >
               {isProcessing ? (

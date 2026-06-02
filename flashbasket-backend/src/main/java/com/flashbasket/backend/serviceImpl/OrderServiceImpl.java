@@ -34,23 +34,9 @@ public class OrderServiceImpl implements OrderService {
 
         Long userId = dto.getUserId();
 
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Cart not found"));
-
-        List<CartItem> cartItems = cartItemRepository.findByCartId(cart.getId());
-
-        if (cartItems.isEmpty()) {
-            throw new RuntimeException("Cart is empty");
-        }
-
-        double totalAmount = cartItems.stream()
-                .mapToDouble(item -> item.getQuantity() *
-                        item.getPriceAtTime().doubleValue())
-                .sum();
-
         Order order = new Order();
         order.setUserId(userId);
-        order.setTotalAmount(totalAmount);
+        order.setTotalAmount(dto.getTotalAmount());
         order.setStatus("PLACED");
         order.setPaymentStatus("PENDING");
         order.setOrderDate(LocalDateTime.now());
@@ -58,8 +44,6 @@ public class OrderServiceImpl implements OrderService {
         order.setPaymentMethod(dto.getPaymentMethod());
 
         Order saved = orderRepository.save(order);
-
-        cartItemRepository.deleteByCartId(cart.getId());
 
         dto.setId(saved.getId());
         dto.setTotalAmount(saved.getTotalAmount());
