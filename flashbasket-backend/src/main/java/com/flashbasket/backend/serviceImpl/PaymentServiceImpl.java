@@ -94,10 +94,9 @@ public class PaymentServiceImpl implements PaymentService {
             Order order = orderRepository.findById(request.getOrderId())
                     .orElseThrow(() -> new RuntimeException("Order not found"));
 
-            // Optional: validate amount matches order total
-            if (!order.getTotalAmount().equals(request.getAmount())) {
-                throw new RuntimeException(
-                        "Amount does not match order total");
+            // Validate amount matches order total
+            if (Math.abs(order.getTotalAmount() - request.getAmount()) > 0.01) {
+                throw new RuntimeException("Amount does not match order total. Expected: " + order.getTotalAmount() + ", Got: " + request.getAmount());
             }
 
             // Create Razorpay client
@@ -124,9 +123,8 @@ public class PaymentServiceImpl implements PaymentService {
                     "INR");
 
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to create Razorpay order",
-                    e);
+            System.err.println("Razorpay Error: " + e.getMessage());
+            throw new RuntimeException("Failed to create Razorpay order: " + e.getMessage(), e);
         }
     }
 

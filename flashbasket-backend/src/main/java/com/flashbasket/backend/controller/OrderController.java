@@ -16,12 +16,10 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping("/place")
-    public ResponseEntity<OrderDTO> placeOrder(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody OrderDTO req) {
+    public ResponseEntity<OrderDTO> placeOrder(@RequestBody OrderDTO req) {
 
         return ResponseEntity.ok(
-                orderService.createOrder(userDetails.getUsername(), req));
+                orderService.createOrder(null, req));
     }
 
     @GetMapping("/my-orders")
